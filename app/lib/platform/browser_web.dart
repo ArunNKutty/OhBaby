@@ -14,3 +14,8 @@ String displayMode() {
   }
   return 'browser';
 }
+
+void hideBootSplash() {
+  final el = web.document.getElementById('boot');
+  el?.classList.add('hidden');
+}

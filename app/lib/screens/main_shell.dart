@@ -41,6 +41,8 @@ class _MainShellState extends State<MainShell> {
         listenable: widget.store,
         builder: (context, _) => Column(
           children: [
+            if (!widget.store.storageReady)
+              const LinearProgressIndicator(minHeight: 3, color: AppColors.sand),
             if (widget.store.syncError != null)
               MaterialBanner(
                 backgroundColor: AppColors.cream,

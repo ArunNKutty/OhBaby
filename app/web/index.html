@@ -7,6 +7,7 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="Log breastfeeds and bottles, and see the week at a glance.">
   <meta name="theme-color" content="#413C58">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -18,8 +19,37 @@
 
   <title>Oh baby baby!</title>
   <link rel="manifest" href="manifest.json">
+
+  <link rel="preload" href="flutter_bootstrap.js" as="script">
+  <link rel="preload" href="main.dart.js" as="script">
+  <link rel="preload" href="canvaskit/canvaskit.wasm" as="fetch" type="application/wasm" crossorigin>
+
+  <style>
+    html, body { height: 100%; margin: 0; background: #413C58; }
+    #boot {
+      box-sizing: border-box;
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      color: #F6F8EC;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      text-align: center;
+    }
+    #boot.hidden { display: none; }
+    #boot .mark { font-size: 3rem; line-height: 1; margin-bottom: 12px; }
+    #boot h1 { margin: 0 0 8px; font-size: 1.75rem; font-weight: 700; }
+    #boot p { margin: 0; opacity: 0.85; font-size: 1rem; }
+  </style>
 </head>
 <body>
+  <div id="boot" aria-live="polite">
+    <div class="mark" aria-hidden="true">👶</div>
+    <h1>Oh baby baby!</h1>
+    <p>Opening your feeding log…</p>
+  </div>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

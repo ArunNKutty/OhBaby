@@ -19,28 +19,19 @@ Feeding changes go through `FeedingRepository`. The app keeps a local drift data
 
 You need Flutter 3.47 (stable) and Go 1.27 with cgo (a C compiler). DuckDB is linked through `github.com/duckdb/duckdb-go/v2`.
 
-Terminal 1, the API:
-
-```bash
-cd server
-CGO_ENABLED=1 go run ./cmd/api
-```
-
-It listens on `http://127.0.0.1:47220`. `GET /healthz` returns `{"status":"ok","duckdb":"ok"}`.
-
-Terminal 2, the web app (release build — much faster first load than debug):
+Fast path (one terminal — recommended):
 
 ```bash
 ./scripts/dev-web-release.sh
 ```
 
-Or manually:
+This builds a **release** web app, then serves the UI and API together on **http://127.0.0.1:47219** with gzip and long-lived cache headers on CanvasKit/WASM. The HTML shell paints immediately; the Flutter UI appears as soon as the engine loads, while the local database opens in the background.
+
+API-only on port 47220 (optional, for backend work):
 
 ```bash
-cd app
-flutter pub get
-dart run build_runner build
-flutter run -d web-server --release --web-hostname 0.0.0.0 --web-port 47219 --no-web-resources-cdn --dart-define=API_BASE=http://127.0.0.1:47220
+cd server
+CGO_ENABLED=1 go run ./cmd/api
 ```
 
 Open `http://127.0.0.1:47219`. CanvasKit and the Nunito font are served with the app, not from a Google CDN. Use debug `flutter run` without `--release` only when you need hot reload.

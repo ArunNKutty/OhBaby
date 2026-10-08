@@ -275,7 +275,7 @@ func validUUID(id string) bool { return uuidRe.MatchString(id) }
 func (s *Server) staticHandler() http.Handler {
 	root := s.cfg.WebRoot
 	files := http.Dir(root)
-	fileServer := http.FileServer(files)
+	fileServer := withGzip(http.FileServer(files))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/v1/") || r.URL.Path == "/healthz" {
 			http.NotFound(w, r)

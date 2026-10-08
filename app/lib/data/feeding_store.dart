@@ -10,10 +10,12 @@ import 'memory_repository.dart';
 
 /// In-memory view of the log. Every change goes through the repository.
 class FeedingStore extends ChangeNotifier {
-  FeedingStore({FeedingRepository? repository})
+  FeedingStore({FeedingRepository? repository, this.storageReady = true})
       : _repo = repository ?? MemoryFeedingRepository();
 
-  final FeedingRepository _repo;
+  FeedingRepository _repo;
+  bool storageReady;
+  bool _storageOpening = false;
   final List<Feeding> _feedings = [];
   final Map<String, String> _outbox = {};
   final Map<String, String> _meta = {};
@@ -42,6 +44,39 @@ class FeedingStore extends ChangeNotifier {
   Feeding? get lastFeeding {
     if (_feedings.isEmpty) return null;
     return _feedings.reduce((a, b) => a.start.isAfter(b.start) ? a : b);
+  }
+
+  /// Opens drift/SQLite on web after the UI is already visible (memory-first).
+  Future<void> attachPersistentStorage(
+    Future<FeedingRepository> Function() open,
+  ) async {
+    if (_storageOpening || storageReady) return;
+    _storageOpening = true;
+    notifyListeners();
+    try {
+      final repo = await open();
+      final stagedFeedings = List<Feeding>.from(_feedings);
+      final stagedOutbox = Map<String, String>.from(_outbox);
+      _repo = repo;
+      await load();
+      for (final feeding in stagedFeedings) {
+        if (_feedings.any((f) => f.id == feeding.id)) continue;
+        await upsert(feeding);
+      }
+      for (final entry in stagedOutbox.entries) {
+        if (_outbox.containsKey(entry.key)) continue;
+        await _queue(entry.key, entry.value);
+      }
+    } catch (e) {
+      setSyncResult(
+        error:
+            'Saved feedings could not be read yet. You can still log on this device.',
+      );
+    } finally {
+      storageReady = true;
+      _storageOpening = false;
+      notifyListeners();
+    }
   }
 
   Future<void> load() async {

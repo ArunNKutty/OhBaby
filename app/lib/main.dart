@@ -13,96 +13,21 @@ import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const AppBootstrap());
-}
+  final store = FeedingStore(storageReady: false);
+  final api = ApiClient();
+  final sync = SyncService(store);
+  store
+    ..api = api
+    ..performSync = sync.syncNow;
 
-class AppBootstrap extends StatefulWidget {
-  const AppBootstrap({super.key});
+  unawaited(
+    store.attachPersistentStorage(() async {
+      final db = AppDatabase();
+      return DriftFeedingRepository(db);
+    }),
+  );
 
-  @override
-  State<AppBootstrap> createState() => _AppBootstrapState();
-}
-
-class _AppBootstrapState extends State<AppBootstrap> {
-  late Future<FeedingStore> _ready;
-
-  @override
-  void initState() {
-    super.initState();
-    _ready = openStore();
-  }
-
-  Future<FeedingStore> openStore() async {
-    final db = AppDatabase();
-    final store = FeedingStore(repository: DriftFeedingRepository(db));
-    await store.load();
-    final api = ApiClient();
-    final sync = SyncService(store);
-    store.api = api;
-    store.performSync = sync.syncNow;
-    return store;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<FeedingStore>(
-      future: _ready,
-      builder: (context, snap) {
-        if (snap.connectionState != ConnectionState.done) {
-          return const _BootShell(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(color: Colors.white),
-                SizedBox(height: 16),
-                Text('Opening your feeding log…', style: TextStyle(color: Colors.white)),
-              ],
-            ),
-          );
-        }
-        if (snap.hasError || !snap.hasData) {
-          return _BootShell(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'The feeding log could not be opened on this device.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white, fontSize: 18),
-                ),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: () => setState(() => _ready = openStore()),
-                  child: const Text('Try again'),
-                ),
-              ],
-            ),
-          );
-        }
-        return BabyFeedTrackerApp(store: snap.data!, backgroundTasks: true);
-      },
-    );
-  }
-}
-
-class _BootShell extends StatelessWidget {
-  const _BootShell({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: buildTheme(),
-      home: Scaffold(
-        backgroundColor: AppColors.indigo,
-        body: Center(
-          child: Padding(padding: const EdgeInsets.all(32), child: child),
-        ),
-      ),
-    );
-  }
+  runApp(BabyFeedTrackerApp(store: store, backgroundTasks: true));
 }
 
 class BabyFeedTrackerApp extends StatefulWidget {
@@ -132,7 +57,10 @@ class _BabyFeedTrackerAppState extends State<BabyFeedTrackerApp> with WidgetsBin
       if (api == null) return;
       SyncService(widget.store).flushEvents();
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _onOpen());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      hideBootSplash();
+      _onOpen();
+    });
   }
 
   Future<void> _onOpen() async {

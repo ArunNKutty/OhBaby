@@ -28,16 +28,22 @@ CGO_ENABLED=1 go run ./cmd/api
 
 It listens on `http://127.0.0.1:47220`. `GET /healthz` returns `{"status":"ok","duckdb":"ok"}`.
 
-Terminal 2, the web app:
+Terminal 2, the web app (release build — much faster first load than debug):
+
+```bash
+./scripts/dev-web-release.sh
+```
+
+Or manually:
 
 ```bash
 cd app
 flutter pub get
 dart run build_runner build
-flutter run -d web-server --web-hostname 0.0.0.0 --web-port 47219 --no-web-resources-cdn
+flutter run -d web-server --release --web-hostname 0.0.0.0 --web-port 47219 --no-web-resources-cdn --dart-define=API_BASE=http://127.0.0.1:47220
 ```
 
-Open `http://127.0.0.1:47219`. CanvasKit and the Nunito font are served with the app, not from a Google CDN.
+Open `http://127.0.0.1:47219`. CanvasKit and the Nunito font are served with the app, not from a Google CDN. Use debug `flutter run` without `--release` only when you need hot reload.
 
 Log a feeding without an account. Today is empty until you add one. Swipe left to delete, then undo. The Week tab averages finished days in the current week.
 

@@ -29,6 +29,8 @@ A simple Flutter app for logging a baby's feedings and seeing daily and weekly s
 
 ## Run
 
+For web development in the monorepo, use the root script `./scripts/dev-web-release.sh` (release build on port 47219). For mobile or debug hot reload:
+
 ```bash
 flutter pub get
 flutter run

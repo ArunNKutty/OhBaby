@@ -64,31 +64,6 @@ class _BabyFeedTrackerAppState extends State<BabyFeedTrackerApp> with WidgetsBin
   }
 
   Future<void> _onOpen() async {
-    final params = Uri.base.queryParameters;
-    final code = params['auth_code'];
-    final error = params['auth_error'];
-    if (code != null && code.isNotEmpty && widget.store.api != null) {
-      try {
-        final session = await widget.store.api!.exchangeCode(code);
-        await widget.store.rememberSession(
-          accessToken: session.accessToken,
-          refreshToken: session.refreshToken,
-          userId: session.userId,
-          email: session.email,
-        );
-        widget.store.track('sign_in_completed');
-      } on ApiException {
-        widget.store.setSyncResult(
-          error: 'Google sign-in did not finish. You can keep logging on this device.',
-        );
-      }
-      replaceBrowserUrl('${Uri.base.origin}/');
-    } else if (error != null) {
-      widget.store.setSyncResult(
-        error: 'Google sign-in did not finish. You can keep logging on this device.',
-      );
-      replaceBrowserUrl('${Uri.base.origin}/');
-    }
     widget.store.track('app_opened', {'display_mode': displayMode()});
     await widget.store.performSync?.call();
   }

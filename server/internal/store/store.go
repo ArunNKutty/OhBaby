@@ -116,24 +116,47 @@ func (s *Store) migrate(ctx context.Context) error {
 	if _, err := s.db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL)`); err != nil {
 		return err
 	}
-	var n int
-	if err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM schema_migrations WHERE version = 1`).Scan(&n); err != nil {
-		return err
-	}
-	if n > 0 {
-		return nil
-	}
-	sqlBytes, err := migrationFS.ReadFile("migrations/001_init.sql")
+	rows, err := s.db.QueryContext(ctx, `SELECT version FROM schema_migrations`)
 	if err != nil {
 		return err
 	}
-	for _, stmt := range splitSQL(string(sqlBytes)) {
-		if _, err := s.db.ExecContext(ctx, stmt); err != nil {
-			return fmt.Errorf("migration: %w\n%s", err, stmt)
+	applied := map[int]bool{}
+	for rows.Next() {
+		var version int
+		if err := rows.Scan(&version); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		applied[version] = true
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	steps := []struct {
+		version int
+		file    string
+	}{
+		{1, "migrations/001_init.sql"},
+		{2, "migrations/002_firebase.sql"},
+	}
+	for _, step := range steps {
+		if applied[step.version] {
+			continue
+		}
+		sqlBytes, err := migrationFS.ReadFile(step.file)
+		if err != nil {
+			return err
+		}
+		for _, stmt := range splitSQL(string(sqlBytes)) {
+			if _, err := s.db.ExecContext(ctx, stmt); err != nil {
+				return fmt.Errorf("migration %d: %w\n%s", step.version, err, stmt)
+			}
+		}
+		if _, err := s.db.ExecContext(ctx, `INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)`, step.version, time.Now().UTC()); err != nil {
+			return err
 		}
 	}
-	_, err = s.db.ExecContext(ctx, `INSERT INTO schema_migrations (version, applied_at) VALUES (1, ?)`, time.Now().UTC())
-	return err
+	return nil
 }
 
 func splitSQL(in string) []string {
@@ -171,6 +194,33 @@ func (s *Store) exec(ctx context.Context, query string, args ...any) error {
 func (s *Store) CreateUser(ctx context.Context, id, email, googleSub string) error {
 	return s.exec(ctx, `INSERT INTO users (id, email, google_sub, created_at) VALUES (?, ?, ?, ?)`,
 		id, email, googleSub, time.Now().UTC())
+}
+
+// UpsertFirebaseUser finds or creates the account for a verified Firebase user.
+func (s *Store) UpsertFirebaseUser(ctx context.Context, id, email, firebaseUID string) (string, error) {
+	var existing dbID
+	err := s.db.QueryRowContext(ctx, `SELECT id FROM users WHERE firebase_uid = ? AND deleted_at IS NULL`, firebaseUID).Scan(&existing)
+	if err == nil {
+		return string(existing), nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return "", err
+	}
+	err = s.db.QueryRowContext(ctx, `SELECT id FROM users WHERE email = ? AND deleted_at IS NULL`, email).Scan(&existing)
+	if err == nil {
+		if err := s.exec(ctx, `UPDATE users SET firebase_uid = ? WHERE id = ?`, firebaseUID, string(existing)); err != nil {
+			return "", err
+		}
+		return string(existing), nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return "", err
+	}
+	if err := s.exec(ctx, `INSERT INTO users (id, email, firebase_uid, created_at) VALUES (?, ?, ?, ?)`,
+		id, email, firebaseUID, time.Now().UTC()); err != nil {
+		return "", err
+	}
+	return id, nil
 }
 
 // UpsertGoogleUser finds or creates the account for a verified Google identity.

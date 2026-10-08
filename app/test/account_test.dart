@@ -9,7 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
-  testWidgets('explains the missing Google credentials and redirect URI', (tester) async {
+  testWidgets('explains the missing Firebase web config', (tester) async {
     final store = FeedingStore();
     await store.load();
     store.api = ApiClient(
@@ -18,8 +18,8 @@ void main() {
         return http.Response(
           jsonEncode({
             'configured': false,
-            'redirect_uri': 'http://127.0.0.1:47220/v1/auth/google/callback',
-            'missing': ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'],
+            'missing': ['FIREBASE_API_KEY', 'FIREBASE_PROJECT_ID'],
+            'setup': ['Enable the Google sign-in provider in Firebase Authentication.'],
           }),
           200,
         );
@@ -30,8 +30,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('not set up'), findsOneWidget);
-    expect(find.textContaining('GOOGLE_CLIENT_ID'), findsOneWidget);
-    expect(find.text('http://127.0.0.1:47220/v1/auth/google/callback'), findsOneWidget);
+    expect(find.textContaining('FIREBASE_API_KEY'), findsOneWidget);
+    expect(find.textContaining('Google sign-in provider'), findsOneWidget);
     expect(find.text('Sign in with Google'), findsNothing);
   });
 

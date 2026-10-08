@@ -18,7 +18,6 @@ fi
 export OHBABY_ADDR="${OHBABY_ADDR:-:47221}"
 export OHBABY_WEB_ROOT="$root/app/build/web"
 export OHBABY_DB="${OHBABY_DB:-$root/data/ohbaby.duckdb}"
-export GOOGLE_REDIRECT_URI="${GOOGLE_REDIRECT_URI:-http://127.0.0.1:47221/v1/auth/google/callback}"
 export OHBABY_APP_ORIGINS="${OHBABY_APP_ORIGINS:-http://127.0.0.1:47221,http://localhost:47221}"
 export OHBABY_ALLOWED_ORIGINS="${OHBABY_ALLOWED_ORIGINS:-$OHBABY_APP_ORIGINS}"
 

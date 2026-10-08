@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../auth/firebase_sign_in.dart';
 import '../data/feeding_store.dart';
-import '../platform/browser.dart';
 import '../sync/api_client.dart';
 import '../theme.dart';
 
@@ -15,8 +15,9 @@ class AccountScreen extends StatefulWidget {
 }
 
 class _AccountScreenState extends State<AccountScreen> {
-  late Future<GoogleAuthStatus> _status;
+  late Future<FirebaseAuthStatus> _status;
   String? _error;
+  bool _signingIn = false;
 
   FeedingStore get store => widget.store;
 
@@ -26,12 +27,12 @@ class _AccountScreenState extends State<AccountScreen> {
     _status = _load();
   }
 
-  Future<GoogleAuthStatus> _load() async {
+  Future<FirebaseAuthStatus> _load() async {
     final api = store.api;
     if (api == null) {
       throw ApiException('The backup server is not configured in this build.');
     }
-    return api.googleStatus();
+    return api.firebaseStatus();
   }
 
   void _reload() {
@@ -41,16 +42,40 @@ class _AccountScreenState extends State<AccountScreen> {
     });
   }
 
-  Future<void> _signIn(GoogleAuthStatus status) async {
+  Future<void> _signIn(FirebaseAuthStatus status) async {
     final api = store.api;
-    if (api == null || !status.configured) return;
+    final web = status.web;
+    if (api == null || !status.configured || web == null || _signingIn) return;
+    setState(() {
+      _signingIn = true;
+      _error = null;
+    });
     store.track('sign_in_started');
-    final returnTo = '${Uri.base.origin}/';
-    redirectBrowser(api.googleStartUri(returnTo).toString());
+    try {
+      final idToken = await signInWithGoogleFirebase(web);
+      final session = await api.exchangeFirebase(idToken);
+      await store.rememberSession(
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+        userId: session.userId,
+        email: session.email,
+      );
+      store.track('sign_in_completed');
+      await store.performSync?.call();
+    } on ApiException catch (e) {
+      setState(() => _error = e.message);
+    } catch (e) {
+      setState(() => _error = 'Google sign-in did not finish. You can keep logging on this device.');
+    } finally {
+      if (mounted) setState(() => _signingIn = false);
+    }
   }
 
   Future<void> _signOut() async {
     await store.performSync?.call();
+    try {
+      await signOutFirebase();
+    } catch (_) {}
     await store.signOutLocal();
     if (mounted) Navigator.of(context).pop();
   }
@@ -61,7 +86,7 @@ class _AccountScreenState extends State<AccountScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Delete account?'),
         content: const Text(
-          'This removes the account and every feeding stored on the server. Feedings on this device are cleared too.',
+          'This removes the account and every feeding stored on the server, and signs you out of Google on this device. Feedings on this device are cleared too.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
@@ -71,7 +96,13 @@ class _AccountScreenState extends State<AccountScreen> {
     );
     if (confirmed != true || store.accessToken == null) return;
     try {
+      try {
+        await deleteFirebaseAccount();
+      } catch (_) {
+        setState(() => _error = 'The Google account stayed signed in here. The feeding backup was still removed.');
+      }
       await store.api?.deleteAccount(store.accessToken!);
+      await signOutFirebase();
       await store.signOutLocal();
       if (mounted) Navigator.of(context).pop();
     } on ApiException catch (e) {
@@ -109,7 +140,7 @@ class _AccountScreenState extends State<AccountScreen> {
                   style: const TextStyle(color: AppColors.muted, height: 1.4),
                 ),
                 const SizedBox(height: 16),
-                if (store.syncing) const LinearProgressIndicator(color: AppColors.indigo),
+                if (store.syncing || _signingIn) const LinearProgressIndicator(color: AppColors.indigo),
                 if (store.syncError != null) ...[
                   const SizedBox(height: 12),
                   Text(store.syncError!, style: const TextStyle(color: AppColors.indigo)),
@@ -119,7 +150,7 @@ class _AccountScreenState extends State<AccountScreen> {
                   Text(_error!, style: const TextStyle(color: AppColors.indigo)),
                 ],
                 const SizedBox(height: 20),
-                FutureBuilder<GoogleAuthStatus>(
+                FutureBuilder<FirebaseAuthStatus>(
                   future: _status,
                   builder: (context, snap) {
                     if (snap.connectionState != ConnectionState.done) {
@@ -130,7 +161,7 @@ class _AccountScreenState extends State<AccountScreen> {
                             children: [
                               CircularProgressIndicator(color: AppColors.indigo),
                               SizedBox(height: 12),
-                              Text('Checking Google sign-in…'),
+                              Text('Checking sign-in…'),
                             ],
                           ),
                         ),
@@ -140,7 +171,7 @@ class _AccountScreenState extends State<AccountScreen> {
                       return _ErrorPane(
                         message: snap.error is ApiException
                             ? (snap.error! as ApiException).message
-                            : 'Google sign-in could not be checked.',
+                            : 'Sign-in could not be checked.',
                         onRetry: _reload,
                       );
                     }
@@ -150,7 +181,7 @@ class _AccountScreenState extends State<AccountScreen> {
                     }
                     if (!store.signedIn) {
                       return FilledButton(
-                        onPressed: () => _signIn(status),
+                        onPressed: _signingIn ? null : () => _signIn(status),
                         child: const Text('Sign in with Google'),
                       );
                     }
@@ -191,13 +222,13 @@ class _AccountScreenState extends State<AccountScreen> {
 class _SetupPane extends StatelessWidget {
   const _SetupPane({required this.status});
 
-  final GoogleAuthStatus status;
+  final FirebaseAuthStatus status;
 
   @override
   Widget build(BuildContext context) {
     final missing = status.missing.isEmpty
-        ? 'GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET'
-        : status.missing.join(' and ');
+        ? 'the Firebase web app settings'
+        : status.missing.join('\n');
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -208,20 +239,21 @@ class _SetupPane extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Google sign-in is not set up on this server yet. You can keep logging feedings on this device.',
+            'Sign in with Google is not set up on this server yet. You can keep logging feedings on this device.',
             style: TextStyle(height: 1.4),
           ),
           const SizedBox(height: 12),
-          const Text('Create a Google Cloud OAuth client of type Web application and set:',
+          const Text('Set these environment variables from the Firebase web app config:',
               style: TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
-          Text(missing),
-          const SizedBox(height: 8),
-          const Text('Authorized redirect URI', style: TextStyle(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          SelectableText(status.redirectUri.isEmpty
-              ? 'http://127.0.0.1:47220/v1/auth/google/callback'
-              : status.redirectUri),
+          SelectableText(missing),
+          if (status.setup.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            for (final line in status.setup) ...[
+              Text(line, style: const TextStyle(height: 1.4)),
+              const SizedBox(height: 8),
+            ],
+          ],
         ],
       ),
     );

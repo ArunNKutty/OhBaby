@@ -38,30 +38,33 @@ Open `http://127.0.0.1:47219`. CanvasKit and the Nunito font are served with the
 
 Log a feeding without an account. Today is empty until you add one. Swipe left to delete, then undo. The Week tab averages finished days in the current week.
 
-## Google sign-in
+## Sign in with Google (Firebase)
 
-Customer login is Sign in with Google. The API does not ship with a client id or secret. Leave them unset and the feeding log still works. Account then explains what is missing.
+Customer login is Sign in with Google through **Firebase Authentication**. The feeding log runs with these unset. Account then lists exactly what is missing. Do not invent the values.
 
-In Google Cloud Console, create an OAuth client of type **Web application** and set:
+In the [Firebase console](https://console.firebase.google.com/):
+
+1. Create or open a project.
+2. Authentication → Sign-in method → enable **Google**.
+3. Authentication → Settings → Authorized domains: add `localhost`, `127.0.0.1`, and your tunnel hostname (no port).
+4. Project settings → Your apps → add a **Web** app and copy its config.
 
 | Name | Value |
 | --- | --- |
-| `GOOGLE_CLIENT_ID` | The client id from that OAuth client |
-| `GOOGLE_CLIENT_SECRET` | The client secret from that OAuth client |
+| `FIREBASE_API_KEY` | `apiKey` |
+| `FIREBASE_AUTH_DOMAIN` | `authDomain` |
+| `FIREBASE_PROJECT_ID` | `projectId` |
+| `FIREBASE_APP_ID` | `appId` |
+| `FIREBASE_MESSAGING_SENDER_ID` | `messagingSenderId` |
+| `FIREBASE_STORAGE_BUCKET` | `storageBucket`, if the config includes one |
 
-Register every redirect URI you will actually use. The server sends exactly one, from `GOOGLE_REDIRECT_URI`:
-
-| How you run it | `GOOGLE_REDIRECT_URI` |
-| --- | --- |
-| Flutter on port 47219 and the API on 47220 | `http://127.0.0.1:47220/v1/auth/google/callback` |
-| `scripts/mac-serve.sh` (one process on port 47221) | `http://127.0.0.1:47221/v1/auth/google/callback` |
-| The same process behind your tunnel | `https://YOUR_HOSTNAME/v1/auth/google/callback` |
+The browser asks Firebase to sign in with Google, then sends the Firebase ID token to `POST /v1/auth/firebase/exchange`. The Go API checks that token and issues its own session. The web config is public in the page; it is still yours to provide.
 
 Also set `OHBABY_APP_ORIGINS` and `OHBABY_ALLOWED_ORIGINS` to the origin you open in the browser (for the tunnel, `https://YOUR_HOSTNAME`). See `.env.example`.
 
 Set `OHBABY_JWT_SECRET` to a long random string before anyone else can reach the server. The development default is only for a machine you control.
 
-There is no email-code login. The technical design used email codes and no social login; sign-in here is Google, as requested. A later iOS build that offers Google sign-in also needs Sign in with Apple (App Store rule 4.8).
+There is no email-code login. A later iOS build that offers Google sign-in also needs Sign in with Apple (App Store rule 4.8).
 
 ## Mac and Cloudflare Tunnel
 
@@ -76,7 +79,7 @@ The app is meant to run on your Mac. `cloudflared` on that Mac publishes it. Thi
 5. Copy `deploy/cloudflared/config.example.yml` to `~/.cloudflared/config.yml`. Set `tunnel` and `credentials-file`. Leave `url` as `http://127.0.0.1:47221`.
 6. `cloudflared tunnel route dns oh-baby-baby YOUR_HOSTNAME`  
    That creates a CNAME to `<UUID>.cfargotunnel.com`. Your domain's nameservers must already be on Cloudflare.
-7. Register `https://YOUR_HOSTNAME/v1/auth/google/callback` on the Google OAuth client and export `GOOGLE_REDIRECT_URI` to that exact string. Add `https://YOUR_HOSTNAME` to `OHBABY_APP_ORIGINS` and `OHBABY_ALLOWED_ORIGINS`.
+7. Add `YOUR_HOSTNAME` (no port) to Firebase Authentication → Authorized domains. Export the `FIREBASE_*` variables from `.env.example`. Add `https://YOUR_HOSTNAME` to `OHBABY_APP_ORIGINS` and `OHBABY_ALLOWED_ORIGINS`.
 8. `./scripts/mac-serve.sh`
 9. `cloudflared tunnel run oh-baby-baby`
 10. `cloudflared tunnel info oh-baby-baby`

@@ -12,25 +12,61 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
-class GoogleAuthStatus {
-  const GoogleAuthStatus({
+class FirebaseWebConfig {
+  const FirebaseWebConfig({
+    required this.apiKey,
+    required this.authDomain,
+    required this.projectId,
+    required this.appId,
+    required this.messagingSenderId,
+    this.storageBucket = '',
+  });
+
+  final String apiKey;
+  final String authDomain;
+  final String projectId;
+  final String appId;
+  final String messagingSenderId;
+  final String storageBucket;
+
+  factory FirebaseWebConfig.fromJson(Map<String, dynamic> json) {
+    return FirebaseWebConfig(
+      apiKey: json['apiKey'] as String? ?? '',
+      authDomain: json['authDomain'] as String? ?? '',
+      projectId: json['projectId'] as String? ?? '',
+      appId: json['appId'] as String? ?? '',
+      messagingSenderId: json['messagingSenderId'] as String? ?? '',
+      storageBucket: json['storageBucket'] as String? ?? '',
+    );
+  }
+}
+
+class FirebaseAuthStatus {
+  const FirebaseAuthStatus({
     required this.configured,
-    required this.redirectUri,
     required this.missing,
+    required this.setup,
+    this.web,
   });
 
   final bool configured;
-  final String redirectUri;
   final List<String> missing;
+  final List<String> setup;
+  final FirebaseWebConfig? web;
 
-  factory GoogleAuthStatus.fromJson(Map<String, dynamic> json) {
+  factory FirebaseAuthStatus.fromJson(Map<String, dynamic> json) {
     final missing = (json['missing'] as List<dynamic>? ?? const [])
         .map((e) => e.toString())
         .toList();
-    return GoogleAuthStatus(
+    final setup = (json['setup'] as List<dynamic>? ?? const [])
+        .map((e) => e.toString())
+        .toList();
+    final webJson = json['web'];
+    return FirebaseAuthStatus(
       configured: json['configured'] == true,
-      redirectUri: json['redirect_uri'] as String? ?? '',
       missing: missing,
+      setup: setup,
+      web: webJson is Map<String, dynamic> ? FirebaseWebConfig.fromJson(webJson) : null,
     );
   }
 }
@@ -66,17 +102,14 @@ class ApiClient {
     return Uri.parse('$root$path').replace(queryParameters: query);
   }
 
-  Uri googleStartUri(String returnTo) =>
-      uri('/v1/auth/google/start', {'return_to': returnTo});
-
-  Future<GoogleAuthStatus> googleStatus() async {
-    final res = await _send(http.Request('GET', uri('/v1/auth/google/status')));
-    return GoogleAuthStatus.fromJson(_json(res));
+  Future<FirebaseAuthStatus> firebaseStatus() async {
+    final res = await _send(http.Request('GET', uri('/v1/auth/firebase/status')));
+    return FirebaseAuthStatus.fromJson(_json(res));
   }
 
-  Future<SessionTokens> exchangeCode(String code) async {
+  Future<SessionTokens> exchangeFirebase(String idToken) async {
     final res = await _send(
-      _jsonRequest('POST', uri('/v1/auth/google/exchange'), {'code': code}),
+      _jsonRequest('POST', uri('/v1/auth/firebase/exchange'), {'id_token': idToken}),
     );
     return _session(_json(res));
   }

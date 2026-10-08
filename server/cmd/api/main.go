@@ -14,8 +14,8 @@ func main() {
 	if cfg.JWTSecret == "dev-only-not-for-production" {
 		log.Print("OHBABY_JWT_SECRET is the development default. Set a long random secret before sharing this server.")
 	}
-	if !cfg.GoogleConfigured() {
-		log.Printf("Google sign-in is not configured. Missing %v. Register this redirect URI on the Google OAuth client: %s", cfg.MissingGoogle(), cfg.GoogleRedirect)
+	if !cfg.FirebaseConfigured() {
+		log.Printf("Firebase sign-in is not configured. Missing %v. Enable Google in Firebase Authentication and set the web app config.", cfg.MissingFirebase())
 	}
 	st, err := store.Open(cfg.DBPath)
 	if err != nil {

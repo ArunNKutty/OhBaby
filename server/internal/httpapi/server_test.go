@@ -24,37 +24,16 @@ func newTestServer(t *testing.T) (*Server, *store.Store) {
 		JWTSecret:      "test-secret",
 		AllowedOrigins: []string{"http://127.0.0.1:47219"},
 		AppOrigins:     []string{"http://127.0.0.1:47219"},
-		GoogleRedirect: "http://127.0.0.1:47220/v1/auth/google/callback",
 	}
 	return New(cfg, st), st
 }
 
-func TestHealthAndGoogleStatus(t *testing.T) {
+func TestHealth(t *testing.T) {
 	srv, _ := newTestServer(t)
 	rr := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/healthz", nil))
 	if rr.Code != http.StatusOK || !bytes.Contains(rr.Body.Bytes(), []byte(`"duckdb":"ok"`)) {
 		t.Fatalf("health: %d %s", rr.Code, rr.Body.String())
-	}
-	rr = httptest.NewRecorder()
-	srv.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/v1/auth/google/status", nil))
-	if rr.Code != http.StatusOK {
-		t.Fatal(rr.Body.String())
-	}
-	var status map[string]any
-	if err := json.Unmarshal(rr.Body.Bytes(), &status); err != nil {
-		t.Fatal(err)
-	}
-	if status["configured"] != false {
-		t.Fatalf("configured: %#v", status["configured"])
-	}
-	if status["redirect_uri"] != "http://127.0.0.1:47220/v1/auth/google/callback" {
-		t.Fatalf("redirect: %#v", status["redirect_uri"])
-	}
-	rr = httptest.NewRecorder()
-	srv.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/v1/auth/google/start?return_to=http://127.0.0.1:47219/", nil))
-	if rr.Code != http.StatusServiceUnavailable {
-		t.Fatalf("start: %d %s", rr.Code, rr.Body.String())
 	}
 }
 

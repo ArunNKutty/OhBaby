@@ -16,7 +16,7 @@ COPY app/build/web /srv/web
 ENV OHBABY_ADDR=:47221
 ENV OHBABY_WEB_ROOT=/srv/web
 ENV OHBABY_DB=/data/ohbaby.duckdb
-ENV GOOGLE_REDIRECT_URI=http://127.0.0.1:47221/v1/auth/google/callback
+# Firebase web config is read from the environment at runtime. Leave it unset to run without sign-in.
 EXPOSE 47221
 VOLUME ["/data"]
 CMD ["ohbaby"]

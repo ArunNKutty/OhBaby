@@ -33,30 +33,16 @@ type Server struct {
 	store *store.Store
 	mux   *http.ServeMux
 
-	mu     sync.Mutex
-	states map[string]oauthState
-	codes  map[string]exchangeCode
-	hits   map[string][]time.Time
-}
-
-type oauthState struct {
-	ReturnTo string
-	Expires  time.Time
-}
-
-type exchangeCode struct {
-	UserID  string
-	Expires time.Time
+	mu   sync.Mutex
+	hits map[string][]time.Time
 }
 
 func New(cfg config.Config, st *store.Store) *Server {
 	s := &Server{
 		cfg:    cfg,
 		store:  st,
-		mux:    http.NewServeMux(),
-		states: map[string]oauthState{},
-		codes:  map[string]exchangeCode{},
-		hits:   map[string][]time.Time{},
+		mux:  http.NewServeMux(),
+		hits: map[string][]time.Time{},
 	}
 	s.routes()
 	return s
@@ -68,10 +54,8 @@ func (s *Server) Handler() http.Handler {
 
 func (s *Server) routes() {
 	s.mux.HandleFunc("GET /healthz", s.health)
-	s.mux.HandleFunc("GET /v1/auth/google/status", s.googleStatus)
-	s.mux.HandleFunc("GET /v1/auth/google/start", s.googleStart)
-	s.mux.HandleFunc("GET /v1/auth/google/callback", s.googleCallback)
-	s.mux.HandleFunc("POST /v1/auth/google/exchange", s.googleExchange)
+	s.mux.HandleFunc("GET /v1/auth/firebase/status", s.firebaseStatus)
+	s.mux.HandleFunc("POST /v1/auth/firebase/exchange", s.firebaseExchange)
 	s.mux.HandleFunc("POST /v1/auth/refresh", s.refresh)
 	s.mux.HandleFunc("GET /v1/me", s.me)
 	s.mux.HandleFunc("DELETE /v1/me", s.deleteMe)
@@ -149,10 +133,8 @@ func (s *Server) originAllowed(origin, host string) bool {
 func (s *Server) withAuth(next http.Handler) http.Handler {
 	public := map[string]bool{
 		"/healthz":                 true,
-		"/v1/auth/google/status":   true,
-		"/v1/auth/google/start":    true,
-		"/v1/auth/google/callback": true,
-		"/v1/auth/google/exchange": true,
+		"/v1/auth/firebase/status":   true,
+		"/v1/auth/firebase/exchange": true,
 		"/v1/auth/refresh":         true,
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

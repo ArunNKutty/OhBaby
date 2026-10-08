@@ -1,16 +1,35 @@
 services:
+  # Official image from https://duckdb.org/docs/lts/operations_manual/duckdb_docker
+  # (docker run -v …:/workspace -w /workspace duckdb/duckdb). The published tag is
+  # current DuckDB (1.5.6 here), which includes the Quack server.
   duckdb:
-    build:
-      context: ./deploy/duckdb
-    image: ohbaby-duckdb
+    image: duckdb/duckdb
+    entrypoint: ["/duckdb"]
+    command:
+      - -unsigned
+      - -interactive
+      - -cmd
+      - INSTALL quack; LOAD quack; CALL quack_serve('quack:0.0.0.0:9494', token := '${DUCKDB_QUACK_TOKEN:-dev-only-not-for-production}', allow_other_hostname => true);
+      - /workspace/ohbaby.duckdb
+    stdin_open: true
+    working_dir: /workspace
     environment:
-      DUCKDB_QUACK_TOKEN: ${DUCKDB_QUACK_TOKEN:-dev-only-not-for-production}
-      DUCKDB_PATH: /data/ohbaby.duckdb
-      HOME: /data
+      HOME: /workspace
     volumes:
-      - ohbaby-data:/data
+      - ohbaby-data:/workspace
     ports:
       - "47221:80"
+    healthcheck:
+      test:
+        - CMD
+        - /duckdb
+        - -unsigned
+        - -c
+        - LOAD quack; FROM quack_query('quack:127.0.0.1:9494', 'SELECT 1', token := '${DUCKDB_QUACK_TOKEN:-dev-only-not-for-production}', disable_ssl := true);
+      interval: 15s
+      timeout: 20s
+      retries: 8
+      start_period: 40s
     restart: unless-stopped
 
   web:

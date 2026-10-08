@@ -20,7 +20,7 @@ Feeding changes go through `FeedingRepository`. The app keeps a local drift data
 The container install is three services. The phone or browser keeps its own SQLite log (Drift). The shared database is a separate DuckDB server.
 
 - `web` is the Flutter release bundle behind nginx.
-- `duckdb` runs DuckDB's Quack server. The file is `/data/ohbaby.duckdb` on the volume `ohbaby-data`. Several API processes can connect to this one server. Quack listens on port 9494 inside the container network and is not published to your Mac.
+- `duckdb` is the official `duckdb/duckdb` image ([Docker operations](https://duckdb.org/docs/lts/operations_manual/duckdb_docker)): the CLI runs with the database directory mounted at `/workspace`. It starts DuckDB's Quack server and stays open because the CLI is interactive. The file is `/workspace/ohbaby.duckdb` on the volume `ohbaby-data`. Several API processes can connect to this one server. Quack listens on port 9494 inside the container network and is not published to your Mac. The image tag on that page is current DuckDB (1.5.6), which is the release that includes Quack.
 - `api` does not open the database file. It sends SQL to the DuckDB server. The phone's SQLite log is unchanged. DuckDB 1.5.6's `ATTACH` does not register the remote catalog, so the API uses `quack_query` instead.
 
 Set `DUCKDB_QUACK_TOKEN` in `.env` before you share the server. The development default is not safe to share.

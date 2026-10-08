@@ -1,10 +1,24 @@
 services:
+  duckdb:
+    build:
+      context: ./deploy/duckdb
+    image: ohbaby-duckdb
+    environment:
+      DUCKDB_QUACK_TOKEN: ${DUCKDB_QUACK_TOKEN:-dev-only-not-for-production}
+      DUCKDB_PATH: /data/ohbaby.duckdb
+      HOME: /data
+    volumes:
+      - ohbaby-data:/data
+    ports:
+      - "47221:80"
+    restart: unless-stopped
+
   web:
     build:
       context: .
       target: web
     image: ohbaby-web
-    network_mode: service:api
+    network_mode: service:duckdb
     depends_on:
       api:
         condition: service_healthy
@@ -15,11 +29,11 @@ services:
       context: .
       target: api
     image: ohbaby-api
-    ports:
-      - "47221:80"
+    network_mode: service:duckdb
     environment:
       OHBABY_ADDR: ":47220"
-      OHBABY_DB: /data/ohbaby.duckdb
+      OHBABY_DB: quack:127.0.0.1:9494
+      DUCKDB_QUACK_TOKEN: ${DUCKDB_QUACK_TOKEN:-dev-only-not-for-production}
       OHBABY_JWT_SECRET: ${OHBABY_JWT_SECRET:-dev-only-not-for-production}
       OHBABY_APP_ORIGINS: ${OHBABY_APP_ORIGINS:-http://127.0.0.1:47221,http://localhost:47221}
       OHBABY_ALLOWED_ORIGINS: ${OHBABY_ALLOWED_ORIGINS:-http://127.0.0.1:47221,http://localhost:47221}
@@ -29,8 +43,9 @@ services:
       FIREBASE_APP_ID: ${FIREBASE_APP_ID:-}
       FIREBASE_MESSAGING_SENDER_ID: ${FIREBASE_MESSAGING_SENDER_ID:-}
       FIREBASE_STORAGE_BUCKET: ${FIREBASE_STORAGE_BUCKET:-}
-    volumes:
-      - ohbaby-data:/data
+    depends_on:
+      duckdb:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

@@ -32,13 +32,23 @@ COPY server /src
 RUN CGO_ENABLED=1 go build -o /out/ohbaby ./cmd/api
 
 FROM debian:bookworm-slim AS api
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl libstdc++6 \
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gzip libstdc++6 \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=api-build /out/ohbaby /usr/local/bin/ohbaby
+COPY deploy/duckdb/quack.duckdb_extension.gz /tmp/quack.duckdb_extension.gz
+COPY deploy/duckdb/httpfs.duckdb_extension.gz /tmp/httpfs.duckdb_extension.gz
+RUN mkdir -p /opt/duckdb-extensions/v1.5.6/linux_amd64 \
+    && gzip -dc /tmp/quack.duckdb_extension.gz > /opt/duckdb-extensions/v1.5.6/linux_amd64/quack.duckdb_extension \
+    && gzip -dc /tmp/httpfs.duckdb_extension.gz > /opt/duckdb-extensions/v1.5.6/linux_amd64/httpfs.duckdb_extension \
+    && rm /tmp/quack.duckdb_extension.gz /tmp/httpfs.duckdb_extension.gz
 ENV OHBABY_ADDR=:47220
 ENV OHBABY_DB=/data/ohbaby.duckdb
 EXPOSE 47220
 VOLUME ["/data"]
-HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=5 \
+# INSTALL checks extensions.duckdb.org before using the copy shipped in the image.
+# That host is not reachable from every network, and a hang blocks startup.
+RUN printf '%s\n' '#!/bin/sh' 'echo "127.0.0.1 extensions.duckdb.org" >> /etc/hosts' 'exec /usr/local/bin/ohbaby' > /usr/local/bin/ohbaby-entry \
+    && chmod +x /usr/local/bin/ohbaby-entry
+HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=8 \
     CMD curl -fsS http://127.0.0.1:47220/healthz || exit 1
-CMD ["ohbaby"]
+ENTRYPOINT ["/usr/local/bin/ohbaby-entry"]

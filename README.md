@@ -17,7 +17,13 @@ Feeding changes go through `FeedingRepository`. The app keeps a local drift data
 
 ## Docker Compose
 
-The container install is two services. `web` is the Flutter release bundle behind nginx. `api` is the Go process and the only writer of DuckDB. DuckDB is not a third server: the file lives on the Compose volume `ohbaby-data` at `/data/ohbaby.duckdb` inside `api`.
+The container install is three services. The phone or browser keeps its own SQLite log (Drift). The shared database is a separate DuckDB server.
+
+- `web` is the Flutter release bundle behind nginx.
+- `duckdb` runs DuckDB's Quack server. The file is `/data/ohbaby.duckdb` on the volume `ohbaby-data`. Several API processes can connect to this one server. Quack listens on port 9494 inside the container network and is not published to your Mac.
+- `api` does not open the database file. It sends SQL to the DuckDB server. The phone's SQLite log is unchanged. DuckDB 1.5.6's `ATTACH` does not register the remote catalog, so the API uses `quack_query` instead.
+
+Set `DUCKDB_QUACK_TOKEN` in `.env` before you share the server. The development default is not safe to share.
 
 ```bash
 docker compose up --build

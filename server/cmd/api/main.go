@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/ArunNKutty/Baby-Feed-Tracker/server/internal/config"
 	"github.com/ArunNKutty/Baby-Feed-Tracker/server/internal/httpapi"
@@ -17,7 +18,18 @@ func main() {
 	if !cfg.FirebaseConfigured() {
 		log.Printf("Firebase sign-in is not configured. Missing %v. Enable Google in Firebase Authentication and set the web app config.", cfg.MissingFirebase())
 	}
-	st, err := store.Open(cfg.DBPath)
+	var (
+		st  *store.Store
+		err error
+	)
+	if strings.HasPrefix(cfg.DBPath, "quack:") {
+		if cfg.DuckDBToken == "" || cfg.DuckDBToken == "dev-only-not-for-production" {
+			log.Print("DUCKDB_QUACK_TOKEN is missing or the development default. Set a long random token before sharing the DuckDB server.")
+		}
+		st, err = store.OpenRemote(cfg.DBPath, cfg.DuckDBToken)
+	} else {
+		st, err = store.Open(cfg.DBPath)
+	}
 	if err != nil {
 		log.Fatal(err)
 	}

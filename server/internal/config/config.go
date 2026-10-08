@@ -9,6 +9,7 @@ import (
 type Config struct {
 	Addr           string
 	DBPath         string
+	DuckDBToken    string
 	JWTSecret      string
 	AllowedOrigins []string
 	AppOrigins     []string
@@ -27,6 +28,7 @@ func FromEnv() Config {
 	return Config{
 		Addr:           env("OHBABY_ADDR", ":47220"),
 		DBPath:         env("OHBABY_DB", "data/ohbaby.duckdb"),
+		DuckDBToken:    os.Getenv("DUCKDB_QUACK_TOKEN"),
 		JWTSecret:      env("OHBABY_JWT_SECRET", "dev-only-not-for-production"),
 		AllowedOrigins: split(env("OHBABY_ALLOWED_ORIGINS", "http://127.0.0.1:47219,http://localhost:47219,http://127.0.0.1:47221,http://localhost:47221")),
 		AppOrigins:     split(env("OHBABY_APP_ORIGINS", "http://127.0.0.1:47219,http://localhost:47219,http://127.0.0.1:47221,http://localhost:47221")),

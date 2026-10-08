@@ -3,11 +3,13 @@ package store
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"embed"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -81,9 +83,15 @@ type Event struct {
 }
 
 type Store struct {
-	db        *sql.DB
+	db        database
 	connector *duckdb.Connector
+	remote    bool
 }
+
+var (
+	remoteURI   = regexp.MustCompile(`^quack:[A-Za-z0-9._-]+:[0-9]+$`)
+	remoteToken = regexp.MustCompile(`^[A-Za-z0-9._-]{4,128}$`)
+)
 
 func Open(path string) (*Store, error) {
 	if path != "" && path != ":memory:" {
@@ -97,7 +105,46 @@ func Open(path string) (*Store, error) {
 	}
 	db := sql.OpenDB(connector)
 	db.SetMaxOpenConns(4)
-	s := &Store{db: db, connector: connector}
+	s := &Store{db: localDB{db}, connector: connector}
+	if err := s.migrate(context.Background()); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	return s, nil
+}
+
+// OpenRemote attaches a DuckDB Quack server. The database file stays in that server.
+// This process only keeps an in-memory DuckDB client so it can speak the Quack protocol.
+func OpenRemote(uri, token string) (*Store, error) {
+	if !remoteURI.MatchString(uri) {
+		return nil, fmt.Errorf("OHBABY_DB must look like quack:hostname:9494")
+	}
+	if !remoteToken.MatchString(token) {
+		return nil, fmt.Errorf("DUCKDB_QUACK_TOKEN must be 4-128 letters, numbers, dots, or dashes")
+	}
+	init := func(execer driver.ExecerContext) error {
+		ctx := context.Background()
+		steps := []string{
+			"SET extension_directory='/opt/duckdb-extensions'",
+			"INSTALL httpfs",
+			"LOAD httpfs",
+			"INSTALL quack",
+			"LOAD quack",
+		}
+		for _, query := range steps {
+			if _, err := execer.ExecContext(ctx, query, nil); err != nil {
+				return fmt.Errorf("%s: %w", query, err)
+			}
+		}
+		return nil
+	}
+	connector, err := duckdb.NewConnector("", init)
+	if err != nil {
+		return nil, err
+	}
+	db := sql.OpenDB(connector)
+	db.SetMaxOpenConns(8)
+	s := &Store{db: remoteDB{local: db, uri: uri, token: token}, connector: connector, remote: true}
 	if err := s.migrate(context.Background()); err != nil {
 		_ = db.Close()
 		return nil, err
@@ -582,6 +629,9 @@ func (s *Store) AppendEvents(ctx context.Context, events []Event) error {
 	if len(events) == 0 {
 		return nil
 	}
+	if s.remote {
+		return s.insertEvents(ctx, events)
+	}
 	conn, err := s.connector.Connect(ctx)
 	if err != nil {
 		return err
@@ -638,6 +688,34 @@ func (s *Store) AppendEvents(ctx context.Context, events []Event) error {
 		}
 	}
 	return app.Close()
+}
+
+func (s *Store) insertEvents(ctx context.Context, events []Event) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	received := time.Now().UTC()
+	for _, e := range events {
+		props := e.PropsJSON
+		if props == "" {
+			props = "{}"
+		}
+		var user any
+		if e.UserID != nil && *e.UserID != "" {
+			user = *e.UserID
+		}
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO events (
+				event_id, name, client_ts, received_at, anon_id, user_id, session_id, platform, app_version, props
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS JSON))`,
+			e.ID, e.Name, e.ClientTS.UTC(), received, e.AnonID, user, e.SessionID, e.Platform, e.AppVersion, props,
+		); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func (s *Store) CountEvents(ctx context.Context) (int, error) {

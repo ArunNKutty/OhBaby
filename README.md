@@ -15,6 +15,16 @@ scripts/   mac-serve.sh builds the web app and serves it with the API
 
 Feeding changes go through `FeedingRepository`. The app keeps a local drift database (SQLite; on the web that is the WASM build in IndexedDB) and an outbox. Signing in is optional. Until you sign in, nothing leaves the device.
 
+## Docker Compose
+
+The container install is two services. `web` is the Flutter release bundle behind nginx. `api` is the Go process and the only writer of DuckDB. DuckDB is not a third server: the file lives on the Compose volume `ohbaby-data` at `/data/ohbaby.duckdb` inside `api`.
+
+```bash
+docker compose up --build
+```
+
+Open `http://127.0.0.1:47221`. nginx serves the site and proxies `/v1` and `/healthz` to the API on the same container network. Put Firebase and `OHBABY_JWT_SECRET` in a `.env` file next to `docker-compose.yml` (see `.env.example`) before you share the server. For a tunnel, point `cloudflared` at `http://127.0.0.1:47221` and add that public origin to `OHBABY_APP_ORIGINS` and `OHBABY_ALLOWED_ORIGINS`.
+
 ## Run it here
 
 You need Flutter 3.47 (stable) and Go 1.27 with cgo (a C compiler). DuckDB is linked through `github.com/duckdb/duckdb-go/v2`.

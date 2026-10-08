@@ -1,0 +1,9 @@
+.git
+.dart_tool
+app/.dart_tool
+app/build
+data
+server/data
+**/*.duckdb
+**/*.duckdb.wal
+.env

@@ -12,7 +12,7 @@ export default defineRailway(() => {
 
   const duckdb = service("duckdb", {
     env: {
-      RAILWAY_DOCKERFILE_PATH: "deploy/railway/Dockerfile.duckdb",
+      RAILWAY_DOCKERFILE_PATH: "deploy/railway/duckdb.Dockerfile",
       HOME: "/workspace",
       DUCKDB_PATH: "/workspace/ohbaby.duckdb",
     },

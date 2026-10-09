@@ -39,7 +39,7 @@ In the project, choose **+ New → GitHub Repo** three times, same repository an
 
 | Service name | Dockerfile variable | Public domain | Volume |
 | --- | --- | --- | --- |
-| `duckdb` | `RAILWAY_DOCKERFILE_PATH=deploy/railway/Dockerfile.duckdb` | none | mount path `/workspace` |
+| `duckdb` | `RAILWAY_DOCKERFILE_PATH=deploy/railway/duckdb.Dockerfile` | none | mount path `/workspace` |
 | `api` | `RAILWAY_DOCKERFILE_PATH=Dockerfile` | none | none |
 | `web` | `RAILWAY_DOCKERFILE_PATH=deploy/railway/Dockerfile.web` | Generate Domain | none |
 

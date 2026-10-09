@@ -27,7 +27,7 @@ func (s *Server) firebaseStatus(w http.ResponseWriter, r *http.Request) {
 		"provider":   "google",
 		"setup": []string{
 			"In Firebase Console, open Authentication and enable the Google sign-in provider.",
-			"Under Authentication → Settings → Authorized domains, add localhost, 127.0.0.1, and your tunnel hostname (no port).",
+			"Under Authentication → Settings → Authorized domains, add localhost, 127.0.0.1, and the Railway web hostname (no scheme, no port).",
 			"Create a Web app in Project settings and copy its config into the environment variables listed here. These values are public in the browser; do not invent them.",
 		},
 	}

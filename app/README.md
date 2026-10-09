@@ -2,7 +2,7 @@
 
 # Oh baby baby! (Flutter app)
 
-The monorepo README at the repository root explains the Go API, Google sign-in, and the Mac cloudflared tunnel. This folder is the client.
+The README at the repository root explains the Go API, Google sign-in, local Docker Compose, and the Railway deploy. This folder is the client.
 
 # Oh baby baby!
 

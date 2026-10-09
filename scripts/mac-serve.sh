@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build the Flutter web app and serve it with the Go API on one port.
-# Point cloudflared at that port. See the README.
+# Local only. The public site is the Railway deploy.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"

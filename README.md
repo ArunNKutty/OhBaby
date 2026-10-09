@@ -9,8 +9,8 @@ This slice is the installable web app, on-device storage, and the API behind it 
 ```
 app/       Flutter client (web, and the same code for iOS and Android later)
 server/    Go 1.27 API, JSON under /v1, DuckDB
-deploy/    cloudflared example for a Mac
-scripts/   mac-serve.sh builds the web app and serves it with the API
+deploy/    nginx and the Railway DuckDB image
+scripts/   local web and API scripts
 ```
 
 Feeding changes go through `FeedingRepository`. The app keeps a local drift database (SQLite; on the web that is the WASM build in IndexedDB) and an outbox. Signing in is optional. Until you sign in, nothing leaves the device.
@@ -20,7 +20,7 @@ Feeding changes go through `FeedingRepository`. The app keeps a local drift data
 The container install is three services. The phone or browser keeps its own SQLite log (Drift). The shared database is a separate DuckDB server.
 
 - `web` is the Flutter release bundle behind nginx.
-- `duckdb` is the official `duckdb/duckdb` image ([Docker operations](https://duckdb.org/docs/lts/operations_manual/duckdb_docker)): the CLI runs with the database directory mounted at `/workspace`. It starts DuckDB's Quack server and stays open because the CLI is interactive. The file is `/workspace/ohbaby.duckdb` on the volume `ohbaby-data`. Several API processes can connect to this one server. Quack listens on port 9494 inside the container network and is not published to your Mac. The image tag on that page is current DuckDB (1.5.6), which is the release that includes Quack.
+- `duckdb` is the official `duckdb/duckdb` image ([Docker operations](https://duckdb.org/docs/lts/operations_manual/duckdb_docker)): the CLI runs with the database directory mounted at `/workspace`. It starts DuckDB's Quack server and stays open because the CLI is interactive. The file is `/workspace/ohbaby.duckdb` on the volume `ohbaby-data`. Several API processes can connect to this one server. Quack listens on port 9494 inside the container network and is not published on the host. The image tag on that page is current DuckDB (1.5.6), which is the release that includes Quack.
 - `api` does not open the database file. It sends SQL to the DuckDB server. The phone's SQLite log is unchanged. DuckDB 1.5.6's `ATTACH` does not register the remote catalog, so the API uses `quack_query` instead.
 
 Set `DUCKDB_QUACK_TOKEN` in `.env` before you share the server. The development default is not safe to share.
@@ -29,13 +29,13 @@ Set `DUCKDB_QUACK_TOKEN` in `.env` before you share the server. The development 
 docker compose up --build
 ```
 
-Open `http://127.0.0.1:47221`. nginx serves the site and proxies `/v1` and `/healthz` to the API on the same container network. Put Firebase and `OHBABY_JWT_SECRET` in a `.env` file next to `docker-compose.yml` (see `.env.example`) before you share the server. For a tunnel, point `cloudflared` at `http://127.0.0.1:47221` and add that public origin to `OHBABY_APP_ORIGINS` and `OHBABY_ALLOWED_ORIGINS`.
+Open `http://127.0.0.1:47221`. nginx serves the site and proxies `/v1` and `/healthz` to the API on the same container network. Put Firebase and `OHBABY_JWT_SECRET` in a `.env` file next to `docker-compose.yml` (see `.env.example`) before you share the server. The public site is the Railway deploy below, not this local port.
 
 ## Railway
 
-Railway does not run `docker-compose.yml`. Create one empty Railway project, then add three services from the GitHub repository that contains this code. The prototype at [Baby-Feed-Tracker](https://github.com/ArunNKutty/Baby-Feed-Tracker) is the screen source. Link Railway to that repository only after this stack is on the branch you select. Linking the prototype branch deploys the old Flutter app, not the API or DuckDB.
+Railway is how this ships. It does not run `docker-compose.yml`. Create one empty Railway project, then add three services from the GitHub repository that contains this code. Select branch `cursor/railway-deploy-2188`. The prototype at [Baby-Feed-Tracker](https://github.com/ArunNKutty/Baby-Feed-Tracker) is the screen source. Linking that prototype branch deploys the old Flutter app, not the API or DuckDB.
 
-In the project, choose **+ New → GitHub Repo** three times, same repository and branch:
+In the project, choose **+ New → GitHub Repo** three times, same repository and branch `cursor/railway-deploy-2188`:
 
 | Service name | Dockerfile variable | Public domain | Volume |
 | --- | --- | --- | --- |
@@ -89,6 +89,8 @@ CGO_ENABLED=1 go run ./cmd/api
 
 Open `http://127.0.0.1:47219`. CanvasKit and the Nunito font are served with the app, not from a Google CDN. Use debug `flutter run` without `--release` only when you need hot reload.
 
+`./scripts/mac-serve.sh` is the same one-process serve on port 47221, for a machine that already has Flutter and Go. It is not the public deploy.
+
 Log a feeding without an account. Today is empty until you add one. Swipe left to delete, then undo. The Week tab averages finished days in the current week.
 
 ## Sign in with Google (Firebase)
@@ -99,7 +101,7 @@ In the [Firebase console](https://console.firebase.google.com/):
 
 1. Create or open a project.
 2. Authentication → Sign-in method → enable **Google**.
-3. Authentication → Settings → Authorized domains: add `localhost`, `127.0.0.1`, and your tunnel hostname (no port).
+3. Authentication → Settings → Authorized domains: add `localhost`, `127.0.0.1`, and the Railway web hostname (no `https://`, no port).
 4. Project settings → Your apps → add a **Web** app and copy its config.
 
 | Name | Value |
@@ -113,33 +115,11 @@ In the [Firebase console](https://console.firebase.google.com/):
 
 The browser asks Firebase to sign in with Google, then sends the Firebase ID token to `POST /v1/auth/firebase/exchange`. The Go API checks that token and issues its own session. The web config is public in the page; it is still yours to provide.
 
-Also set `OHBABY_APP_ORIGINS` and `OHBABY_ALLOWED_ORIGINS` to the origin you open in the browser (for the tunnel, `https://YOUR_HOSTNAME`). See `.env.example`.
+Also set `OHBABY_APP_ORIGINS` and `OHBABY_ALLOWED_ORIGINS` to the origin you open in the browser. For Railway that is `https://` plus the web service hostname. See `.env.example`.
 
 Set `OHBABY_JWT_SECRET` to a long random string before anyone else can reach the server. The development default is only for a machine you control.
 
 There is no email-code login. A later iOS build that offers Google sign-in also needs Sign in with Apple (App Store rule 4.8).
-
-## Mac and Cloudflare Tunnel
-
-The app is meant to run on your Mac. `cloudflared` on that Mac publishes it. This environment cannot log in to your Cloudflare account or open a browser on your Mac, so the tunnel itself is a step you run.
-
-1. Install Flutter 3.47, Go 1.27, and a C compiler.
-2. `brew install cloudflared`
-3. `cloudflared tunnel login`  
-   A browser opens. Log in and pick the hostname's zone. This writes `cert.pem` under `~/.cloudflared`.
-4. `cloudflared tunnel create oh-baby-baby`  
-   Note the tunnel UUID and the credentials file path.
-5. Copy `deploy/cloudflared/config.example.yml` to `~/.cloudflared/config.yml`. Set `tunnel` and `credentials-file`. Leave `url` as `http://127.0.0.1:47221`.
-6. `cloudflared tunnel route dns oh-baby-baby YOUR_HOSTNAME`  
-   That creates a CNAME to `<UUID>.cfargotunnel.com`. Your domain's nameservers must already be on Cloudflare.
-7. Add `YOUR_HOSTNAME` (no port) to Firebase Authentication → Authorized domains. Export the `FIREBASE_*` variables from `.env.example`. Add `https://YOUR_HOSTNAME` to `OHBABY_APP_ORIGINS` and `OHBABY_ALLOWED_ORIGINS`.
-8. `./scripts/mac-serve.sh`
-9. `cloudflared tunnel run oh-baby-baby`
-10. `cloudflared tunnel info oh-baby-baby`
-
-To keep the tunnel running after you log out, install it as a launch agent: [run as a service](https://developers.cloudflare.com/tunnel/features/locally-managed-tunnels/as-a-service/).
-
-`scripts/mac-serve.sh` builds the web app with `--no-web-resources-cdn` and serves the API and the site on port 47221. Hashed CanvasKit files are cached for a long time. `index.html` and `flutter_bootstrap.js` are not.
 
 On an iPhone, an installed web app does not share storage with the Safari tab. Sign in after Add to Home Screen so the server copy is the one that matters. The home-screen name is **Oh baby!**
 
@@ -150,19 +130,6 @@ cd server && CGO_ENABLED=1 go vet ./... && CGO_ENABLED=1 go test ./...
 cd app && flutter analyze && flutter test
 ```
 
-## Cloudflare agent setup
-
-Skills are installed for this agent at `~/.agents/skills` (from `npx skills add cloudflare/skills`). The project MCP entry is `.cursor/mcp.json` and points at `https://mcp.cloudflare.com/mcp`. OAuth for that server starts the first time a Cursor agent calls it. The `cf` CLI was not installed; say if you want it.
-
-```
-┌─ Cloudflare Agent Setup Complete ────────────────────┐
-│  ✓ Skills  ~/.agents/skills                          │
-│  ✓ MCPs    .cursor/mcp.json                          │
-│                                                      │
-│  ⚡ Restart your agent to load the MCP servers       │
-└──────────────────────────────────────────────────────┘
-```
-
 ## Still open
 
-Hosting region, the public hostname, the Apple bundle id and Play application id, whether analytics should default on for EU and UK users (this build stays off until you turn it on in Account), which countries launch in, and whether to ask for a birth date. Nightly Parquet export to object storage is `Store.ExportParquet` and is not scheduled here. Disk encryption for the DuckDB file is part of how you host the Mac.
+The Railway web hostname, the Apple bundle id and Play application id, whether analytics should default on for EU and UK users (this build stays off until you turn it on in Account), which countries launch in, and whether to ask for a birth date. Nightly Parquet export to object storage is `Store.ExportParquet` and is not scheduled here.

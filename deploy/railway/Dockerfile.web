@@ -1,0 +1,27 @@
+# Railway builds the last stage of a Dockerfile and cannot select the `web`
+# target of /Dockerfile. This file is that web image.
+FROM debian:bookworm-slim AS web-build
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates curl git unzip xz-utils \
+    && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL -o /tmp/flutter.tar.xz \
+        https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.47.6-stable.tar.xz \
+    && tar -C /opt -xf /tmp/flutter.tar.xz \
+    && rm /tmp/flutter.tar.xz
+ENV PATH="/opt/flutter/bin:${PATH}"
+RUN git config --global --add safe.directory /opt/flutter \
+    && flutter config --no-analytics --enable-web \
+    && flutter precache --web
+WORKDIR /src
+COPY app /src
+RUN flutter pub get \
+    && dart run build_runner build --delete-conflicting-outputs \
+    && flutter build web --release --no-web-resources-cdn --dart-define=API_BASE=
+
+FROM nginx:1.27-alpine AS web
+ENV NGINX_ENVSUBST_FILTER=^(PORT|API_UPSTREAM)$
+ENV PORT=80
+ENV API_UPSTREAM=127.0.0.1:47220
+COPY deploy/nginx/default.conf.template /etc/nginx/templates/default.conf.template
+COPY --from=web-build /src/build/web /usr/share/nginx/html
+EXPOSE 80

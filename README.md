@@ -31,6 +31,43 @@ docker compose up --build
 
 Open `http://127.0.0.1:47221`. nginx serves the site and proxies `/v1` and `/healthz` to the API on the same container network. Put Firebase and `OHBABY_JWT_SECRET` in a `.env` file next to `docker-compose.yml` (see `.env.example`) before you share the server. For a tunnel, point `cloudflared` at `http://127.0.0.1:47221` and add that public origin to `OHBABY_APP_ORIGINS` and `OHBABY_ALLOWED_ORIGINS`.
 
+## Railway
+
+Railway does not run `docker-compose.yml`. Create one empty Railway project, then add three services from the GitHub repository that contains this code. The prototype at [Baby-Feed-Tracker](https://github.com/ArunNKutty/Baby-Feed-Tracker) is the screen source. Link Railway to that repository only after this stack is on the branch you select. Linking the prototype branch deploys the old Flutter app, not the API or DuckDB.
+
+In the project, choose **+ New → GitHub Repo** three times, same repository and branch:
+
+| Service name | Dockerfile variable | Public domain | Volume |
+| --- | --- | --- | --- |
+| `duckdb` | `RAILWAY_DOCKERFILE_PATH=deploy/railway/Dockerfile.duckdb` | none | mount path `/workspace` |
+| `api` | `RAILWAY_DOCKERFILE_PATH=Dockerfile` | none | none |
+| `web` | `RAILWAY_DOCKERFILE_PATH=deploy/railway/Dockerfile.web` | Generate Domain | none |
+
+The service names have to stay `duckdb`, `api`, and `web`. Private DNS is `duckdb.railway.internal` and `api.railway.internal`.
+
+On `duckdb` and `api`, set the same `DUCKDB_QUACK_TOKEN` (letters, numbers, dots, and dashes, 4 to 128 characters). Do not use `dev-only-not-for-production`. The DuckDB image refuses to start with that value. On `api`, also set `OHBABY_JWT_SECRET` to a long random string.
+
+`api` variables:
+
+```
+OHBABY_ADDR=:47220
+OHBABY_DB=quack:duckdb.railway.internal:9494
+OHBABY_ALLOWED_ORIGINS=https://YOUR_WEB_DOMAIN
+OHBABY_APP_ORIGINS=https://YOUR_WEB_DOMAIN
+```
+
+`YOUR_WEB_DOMAIN` is the hostname Railway shows after **Generate Domain** on `web`, with no path. Add that hostname, without `https://`, to Firebase Authentication → Settings → Authorized domains, and set the `FIREBASE_*` variables from `.env.example` on the `api` service.
+
+`web` variable:
+
+```
+API_UPSTREAM=api.railway.internal:47220
+```
+
+Leave `PORT` unset. Railway sets it, and nginx listens on it. Only `web` should have a public domain. DuckDB stays on port 9494 inside the project.
+
+`.railway/railway.ts` describes the same three services, the volume, and those non-secret variables. After `railway login` and `railway link`, install the SDK with `npm install railway` and run `railway config apply`. Set the token, JWT secret, and Firebase values in the dashboard. They are not in the file.
+
 ## Run it here
 
 You need Flutter 3.47 (stable) and Go 1.27 with cgo (a C compiler). DuckDB is linked through `github.com/duckdb/duckdb-go/v2`.

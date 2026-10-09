@@ -37,6 +37,9 @@ services:
       context: .
       target: web
     image: ohbaby-web
+    environment:
+      PORT: "80"
+      API_UPSTREAM: 127.0.0.1:47220
     network_mode: service:duckdb
     depends_on:
       api:

@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/ArunNKutty/Baby-Feed-Tracker/server/internal/config"
 	"github.com/ArunNKutty/Baby-Feed-Tracker/server/internal/httpapi"
@@ -26,7 +27,15 @@ func main() {
 		if cfg.DuckDBToken == "" || cfg.DuckDBToken == "dev-only-not-for-production" {
 			log.Print("DUCKDB_QUACK_TOKEN is missing or the development default. Set a long random token before sharing the DuckDB server.")
 		}
-		st, err = store.OpenRemote(cfg.DBPath, cfg.DuckDBToken)
+		// Railway starts services together and has no Compose depends_on.
+		for attempt := 1; attempt <= 30; attempt++ {
+			st, err = store.OpenRemote(cfg.DBPath, cfg.DuckDBToken)
+			if err == nil {
+				break
+			}
+			log.Printf("DuckDB server not ready (%v). Retry %d/30.", err, attempt)
+			time.Sleep(2 * time.Second)
+		}
 	} else {
 		st, err = store.Open(cfg.DBPath)
 	}

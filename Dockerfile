@@ -20,7 +20,11 @@ RUN flutter pub get \
     && flutter build web --release --no-web-resources-cdn --dart-define=API_BASE=
 
 FROM nginx:1.27-alpine AS web
-COPY deploy/nginx/default.conf /etc/nginx/conf.d/default.conf
+# Substitute only PORT and API_UPSTREAM. Other nginx variables such as $host stay intact.
+ENV NGINX_ENVSUBST_FILTER=^(PORT|API_UPSTREAM)$
+ENV PORT=80
+ENV API_UPSTREAM=127.0.0.1:47220
+COPY deploy/nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=web-build /src/build/web /usr/share/nginx/html
 EXPOSE 80
 

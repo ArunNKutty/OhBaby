@@ -10,8 +10,13 @@ server {
 
     include mime.types;
 
+    # Resolve the API per request so nginx starts even when the API is not up yet.
+    # Railway starts services together; a startup lookup would exit with "host not found".
+    resolver ${NGINX_LOCAL_RESOLVERS} valid=10s;
+    set $api_upstream ${API_UPSTREAM};
+
     location /v1/ {
-        proxy_pass http://${API_UPSTREAM};
+        proxy_pass http://$api_upstream;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -19,7 +24,7 @@ server {
     }
 
     location = /healthz {
-        proxy_pass http://${API_UPSTREAM}/healthz;
+        proxy_pass http://$api_upstream/healthz;
         proxy_set_header Host $host;
     }
 
@@ -35,7 +40,10 @@ server {
         add_header Cache-Control "public, max-age=31536000, immutable";
     }
 
+    # main.dart.js, assets and the service worker keep their names between builds.
+    # Revalidate them (a 304 when unchanged) so a new deploy shows up on the next load.
     location / {
+        add_header Cache-Control "no-cache";
         try_files $uri $uri/ /index.html;
     }
 }

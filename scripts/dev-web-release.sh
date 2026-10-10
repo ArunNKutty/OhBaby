@@ -3,6 +3,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+if [[ -f "$ROOT/.env" ]]; then
+  set -a; source "$ROOT/.env"; set +a
+fi
 cd "$ROOT/app"
 
 flutter pub get

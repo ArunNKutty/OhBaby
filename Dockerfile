@@ -20,8 +20,9 @@ RUN flutter pub get \
     && flutter build web --release --no-web-resources-cdn --dart-define=API_BASE=
 
 FROM nginx:1.27-alpine AS web
-# Substitute only PORT and API_UPSTREAM. Other nginx variables such as $host stay intact.
-ENV NGINX_ENVSUBST_FILTER=^(PORT|API_UPSTREAM)$
+# Substitute only PORT, API_UPSTREAM, and the container DNS resolvers. Other nginx variables such as $host stay intact.
+ENV NGINX_ENVSUBST_FILTER=^(PORT|API_UPSTREAM|NGINX_LOCAL_RESOLVERS)$
+ENV NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
 ENV PORT=80
 ENV API_UPSTREAM=127.0.0.1:47220
 COPY deploy/nginx/default.conf.template /etc/nginx/templates/default.conf.template
@@ -48,7 +49,6 @@ RUN mkdir -p /opt/duckdb-extensions/v1.5.6/linux_amd64 \
 ENV OHBABY_ADDR=:47220
 ENV OHBABY_DB=/data/ohbaby.duckdb
 EXPOSE 47220
-VOLUME ["/data"]
 # INSTALL checks extensions.duckdb.org before using the copy shipped in the image.
 # That host is not reachable from every network, and a hang blocks startup.
 RUN printf '%s\n' '#!/bin/sh' 'echo "127.0.0.1 extensions.duckdb.org" >> /etc/hosts' 'exec /usr/local/bin/ohbaby' > /usr/local/bin/ohbaby-entry \

@@ -195,6 +195,18 @@ class FeedingStore extends ChangeNotifier {
 
   Future<void> setSyncToken(String token) => _putMeta('sync_token', token);
 
+  /// Switches to a baby the account already has on the server, so signing in on
+  /// another device shows the same log. Feedings not yet sent follow the baby,
+  /// and the next pull starts from the beginning.
+  Future<void> adoptBaby(String id, String name) async {
+    _babyId = id;
+    if (name.trim().isNotEmpty) _babyName = name.trim();
+    await _putMeta('baby_id', _babyId);
+    await _putMeta('baby_name', _babyName);
+    await _putMeta('sync_token', '0');
+    notifyListeners();
+  }
+
   Future<void> clearOutbox() async {
     final ids = _outbox.keys.toList();
     _outbox.clear();

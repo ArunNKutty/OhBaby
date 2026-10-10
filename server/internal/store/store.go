@@ -56,11 +56,11 @@ type Feeding struct {
 }
 
 type Baby struct {
-	ID        string
-	Name      string
-	BirthDate *string
-	Role      string
-	CreatedAt time.Time
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	BirthDate *string   `json:"birth_date"`
+	Role      string    `json:"role"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type User struct {

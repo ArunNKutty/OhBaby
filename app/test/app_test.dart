@@ -4,16 +4,29 @@ import 'package:baby_feed_tracker/models/feeding.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+/// The log is behind sign-in, so these tests start with a saved session.
+Future<FeedingStore> signedInStore() async {
+  final store = FeedingStore();
+  await store.load();
+  await store.rememberSession(
+    accessToken: 'access',
+    refreshToken: 'refresh',
+    userId: 'user-1',
+    email: 'parent@example.com',
+  );
+  return store;
+}
+
 void main() {
   testWidgets('add a bottle feeding and see it in the totals', (tester) async {
     tester.view.physicalSize = const Size(1170, 2532);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
 
-    final store = FeedingStore();
-    await store.load();
+    final store = await signedInStore();
 
-    await tester.pumpWidget(BabyFeedTrackerApp(store: store));
+    await tester.pumpWidget(BabyFeedTrackerApp(store: store, splashDuration: Duration.zero));
+    await tester.pumpAndSettle();
     expect(find.text('Today'), findsWidgets);
     expect(find.text('Formula: 0 ml'), findsWidgets);
 
@@ -59,9 +72,9 @@ void main() {
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
 
-    final store = FeedingStore();
-    await store.load();
-    await tester.pumpWidget(BabyFeedTrackerApp(store: store));
+    final store = await signedInStore();
+    await tester.pumpWidget(BabyFeedTrackerApp(store: store, splashDuration: Duration.zero));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Add a feeding'));
     await tester.pumpAndSettle();
@@ -83,9 +96,9 @@ void main() {
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
 
-    final store = FeedingStore();
-    await store.load();
-    await tester.pumpWidget(BabyFeedTrackerApp(store: store));
+    final store = await signedInStore();
+    await tester.pumpWidget(BabyFeedTrackerApp(store: store, splashDuration: Duration.zero));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Add a feeding'));
     await tester.pumpAndSettle();

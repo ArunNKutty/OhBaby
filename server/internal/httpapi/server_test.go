@@ -196,3 +196,38 @@ func do(srv *Server, method, path, token string, body []byte) *httptest.Response
 	srv.Handler().ServeHTTP(rr, r)
 	return rr
 }
+
+// Each account sees only its own babies, by the keys the app reads.
+func TestListBabiesPerUser(t *testing.T) {
+	srv, st := newTestServer(t)
+	ctx := t.Context()
+	userA := "77777777-7777-4777-8777-777777777777"
+	userB := "88888888-8888-4888-8888-888888888888"
+	baby := "99999999-9999-4999-8999-999999999999"
+	for _, u := range []string{userA, userB} {
+		if err := st.CreateUser(ctx, u, u+"@example.com", "sub-"+u); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tokenA, _, _ := srv.signAccess(userA)
+	tokenB, _, _ := srv.signAccess(userB)
+	if rr := do(srv, http.MethodPost, "/v1/babies", tokenA, []byte(`{"id":"`+baby+`","name":"Bea"}`)); rr.Code != http.StatusOK {
+		t.Fatal(rr.Body.String())
+	}
+
+	var got struct {
+		Babies []map[string]any `json:"babies"`
+	}
+	rr := do(srv, http.MethodGet, "/v1/babies", tokenA, nil)
+	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil || len(got.Babies) != 1 {
+		t.Fatalf("user A babies: %d %s", rr.Code, rr.Body.String())
+	}
+	if got.Babies[0]["id"] != baby || got.Babies[0]["name"] != "Bea" {
+		t.Fatalf("baby json: %s", rr.Body.String())
+	}
+
+	rr = do(srv, http.MethodGet, "/v1/babies", tokenB, nil)
+	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil || len(got.Babies) != 0 {
+		t.Fatalf("user B should see no babies: %s", rr.Body.String())
+	}
+}

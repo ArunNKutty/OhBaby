@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../auth/firebase_sign_in.dart';
+import '../auth/sign_in_flow.dart';
 import '../data/feeding_store.dart';
 import '../sync/api_client.dart';
 import '../theme.dart';
+import 'login_screen.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key, required this.store});
@@ -43,32 +45,28 @@ class _AccountScreenState extends State<AccountScreen> {
   }
 
   Future<void> _signIn(FirebaseAuthStatus status) async {
-    final api = store.api;
-    final web = status.web;
-    if (api == null || !status.configured || web == null || _signingIn) return;
+    if (_signingIn) return;
     setState(() {
       _signingIn = true;
       _error = null;
     });
-    store.track('sign_in_started');
     try {
-      final idToken = await signInWithGoogleFirebase(web);
-      final session = await api.exchangeFirebase(idToken);
-      await store.rememberSession(
-        accessToken: session.accessToken,
-        refreshToken: session.refreshToken,
-        userId: session.userId,
-        email: session.email,
-      );
-      store.track('sign_in_completed');
-      await store.performSync?.call();
+      await signInWithGoogle(store, status);
     } on ApiException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {
-      setState(() => _error = 'Google sign-in did not finish. You can keep logging on this device.');
+      setState(() => _error = 'Google sign-in did not finish. Please try again.');
     } finally {
       if (mounted) setState(() => _signingIn = false);
     }
+  }
+
+  /// After signing out, the app goes back to the login page.
+  void _toLogin() {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => LoginScreen(store: store)),
+      (_) => false,
+    );
   }
 
   Future<void> _signOut() async {
@@ -77,7 +75,7 @@ class _AccountScreenState extends State<AccountScreen> {
       await signOutFirebase();
     } catch (_) {}
     await store.signOutLocal();
-    if (mounted) Navigator.of(context).pop();
+    if (mounted) _toLogin();
   }
 
   Future<void> _delete() async {
@@ -104,7 +102,7 @@ class _AccountScreenState extends State<AccountScreen> {
       await store.api?.deleteAccount(store.accessToken!);
       await signOutFirebase();
       await store.signOutLocal();
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) _toLogin();
     } on ApiException catch (e) {
       setState(() => _error = e.message);
     }

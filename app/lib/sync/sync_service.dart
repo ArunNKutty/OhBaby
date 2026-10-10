@@ -93,6 +93,17 @@ class SyncService {
   }
 
   Future<void> _ensureBaby(ApiClient api) async {
+    // An account that already has a baby keeps using it, so a new device or a
+    // fresh sign-in loads that log instead of starting an empty one.
+    final res = await _authed(api, 'GET', '/v1/babies');
+    final babies = (jsonDecode(res.body) as Map<String, dynamic>)['babies'] as List<dynamic>? ?? const [];
+    final ids = [for (final b in babies) (b as Map<String, dynamic>)['id'] as String? ?? ''];
+    if (ids.contains(store.babyId)) return;
+    if (babies.isNotEmpty) {
+      final first = babies.first as Map<String, dynamic>;
+      await store.adoptBaby(first['id'] as String, first['name'] as String? ?? '');
+      return;
+    }
     await _authed(
       api,
       'POST',

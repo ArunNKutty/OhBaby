@@ -6,7 +6,7 @@ import 'data/app_database.dart';
 import 'data/drift_repository.dart';
 import 'data/feeding_store.dart';
 import 'platform/browser.dart';
-import 'screens/main_shell.dart';
+import 'screens/splash_screen.dart';
 import 'sync/api_client.dart';
 import 'sync/sync_service.dart';
 import 'theme.dart';
@@ -31,10 +31,16 @@ Future<void> main() async {
 }
 
 class BabyFeedTrackerApp extends StatefulWidget {
-  const BabyFeedTrackerApp({super.key, required this.store, this.backgroundTasks = false});
+  const BabyFeedTrackerApp({
+    super.key,
+    required this.store,
+    this.backgroundTasks = false,
+    this.splashDuration = const Duration(seconds: 3),
+  });
 
   final FeedingStore store;
   final bool backgroundTasks;
+  final Duration splashDuration;
 
   @override
   State<BabyFeedTrackerApp> createState() => _BabyFeedTrackerAppState();
@@ -96,7 +102,7 @@ class _BabyFeedTrackerAppState extends State<BabyFeedTrackerApp> with WidgetsBin
           child: child ?? const SizedBox.shrink(),
         ),
       ),
-      home: MainShell(store: widget.store),
+      home: SplashScreen(store: widget.store, duration: widget.splashDuration),
     );
   }
 }

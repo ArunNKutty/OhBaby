@@ -90,14 +90,14 @@ void main() {
           return http.Response(
             jsonEncode({
               'babies': [
-                {'id': existing, 'name': 'Bea', 'role': 'owner'},
+                {'id': existing, 'name': 'Bea', 'role': 'owner', 'birth_date': '2026-09-01'},
               ],
             }),
             200,
           );
         }
-        if (req.url.path == '/v1/babies/$existing/feedings') {
-          return http.Response(jsonEncode({'feedings': [], 'sync_token': '7'}), 200);
+        if (req.url.path == '/v1/babies/$existing/entries') {
+          return http.Response(jsonEncode({'entries': [], 'sync_token': '7'}), 200);
         }
         return http.Response('unexpected', 500);
       }),
@@ -108,7 +108,8 @@ void main() {
     expect(store.syncError, isNull);
     expect(store.babyId, existing);
     expect(store.babyName, 'Bea');
+    expect(store.birthDate, DateTime(2026, 9, 1));
     expect(requests, isNot(contains('POST /v1/babies')));
-    expect(requests, contains('GET /v1/babies/$existing/feedings'));
+    expect(requests, contains('GET /v1/babies/$existing/entries'));
   });
 }

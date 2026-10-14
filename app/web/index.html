@@ -6,7 +6,8 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="Log breastfeeds and bottles, and see the week at a glance.">
-  <meta name="theme-color" content="#413C58">
+  <meta name="theme-color" content="#E9E7E1" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#15191E" media="(prefers-color-scheme: dark)">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <meta name="mobile-web-app-capable" content="yes">
@@ -25,7 +26,11 @@
   <link rel="preload" href="canvaskit/canvaskit.wasm" as="fetch" type="application/wasm" crossorigin>
 
   <style>
-    html, body { height: 100%; margin: 0; background: #413C58; }
+    html, body { height: 100%; margin: 0; background: #E9E7E1; }
+    @media (prefers-color-scheme: dark) {
+      html, body { background: #15191E; }
+      #boot { color: #E8ECEF !important; }
+    }
     #boot {
       box-sizing: border-box;
       min-height: 100%;
@@ -34,7 +39,7 @@
       align-items: center;
       justify-content: center;
       padding: 32px;
-      color: #F6F8EC;
+      color: #263241;
       font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
       text-align: center;
     }

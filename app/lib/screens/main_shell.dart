@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../data/feeding_store.dart';
-import '../models/summary.dart';
+import '../models/trends.dart';
+import '../sheets/add_entry_sheet.dart';
 import '../theme.dart';
-import 'account_screen.dart';
+import 'profile_screen.dart';
 import 'today_screen.dart';
-import 'week_screen.dart';
+import 'trends_screen.dart';
 
-/// Bottom navigation between the Today landing page and the weekly summary.
+/// Today, Trends and Profile, with "Add an entry" on Today.
 class MainShell extends StatefulWidget {
   const MainShell({super.key, required this.store});
 
@@ -20,8 +21,8 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _tab = 0;
 
-  /// The day shown on the Today tab. The week tab sets it when a day is tapped.
-  final _day = ValueNotifier<DateTime>(dateOnly(DateTime.now()));
+  /// The day shown on Today. Trends sets it when a day is tapped.
+  late final _day = ValueNotifier<DateTime>(dateOnly(widget.store.now()));
 
   @override
   void dispose() {
@@ -36,78 +37,51 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Scaffold(
-      body: ListenableBuilder(
-        listenable: widget.store,
-        builder: (context, _) => Column(
+      body: SafeArea(
+        bottom: false,
+        child: Column(
           children: [
-            if (!widget.store.storageReady)
-              const LinearProgressIndicator(minHeight: 3, color: AppColors.sand),
-            if (widget.store.syncError != null)
-              MaterialBanner(
-                backgroundColor: AppColors.cream,
-                content: Text(widget.store.syncError!),
-                actions: [
-                  TextButton(
-                    onPressed: () => widget.store.setSyncResult(),
-                    child: const Text('Dismiss'),
-                  ),
-                ],
-              ),
+            ListenableBuilder(
+              listenable: widget.store,
+              builder: (context, _) =>
+                  widget.store.storageReady ? const SizedBox.shrink() : LinearProgressIndicator(minHeight: 3, color: c.primary),
+            ),
             Expanded(
-              child: Stack(
+              child: IndexedStack(
+                index: _tab,
                 children: [
-                  IndexedStack(
-                    index: _tab,
-                    children: [
-                      TodayScreen(store: widget.store, day: _day),
-                      WeekScreen(store: widget.store, onOpenDay: _openDay),
-                    ],
-                  ),
-                  Positioned(
-                    top: 8,
-                    right: 12,
-                    child: SafeArea(
-                      child: IconButton(
-                        tooltip: 'Account',
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => AccountScreen(store: widget.store),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.person_outline, color: Colors.white),
-                      ),
-                    ),
-                  ),
+                  TodayScreen(store: widget.store, day: _day),
+                  TrendsScreen(store: widget.store, onOpenDay: _openDay),
+                  ProfileScreen(store: widget.store),
                 ],
               ),
             ),
           ],
         ),
       ),
+      floatingActionButton: _tab == 0
+          ? FloatingActionButton.extended(
+              onPressed: () => showAddEntry(context, widget.store),
+              backgroundColor: c.primary,
+              foregroundColor: c.onPrimary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              icon: const Icon(Icons.add),
+              label: const Text('Add an entry', style: TextStyle(fontSize: 16)),
+            )
+          : null,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
-        backgroundColor: Colors.white,
-        indicatorColor: AppColors.mint,
         onDestinationSelected: (i) {
           // Coming back to Today from the tab bar shows today again.
-          if (i == 0 && _tab != 0) _day.value = dateOnly(DateTime.now());
-          if (i == 1 && _tab != 1) widget.store.track('week_viewed', {'weeks_back': 0});
+          if (i == 0 && _tab != 0) _day.value = dateOnly(widget.store.now());
           setState(() => _tab = i);
         },
         destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.today_outlined),
-            selectedIcon: Icon(Icons.today),
-            label: 'Today',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.insights_outlined),
-            selectedIcon: Icon(Icons.insights),
-            label: 'Week',
-          ),
+          NavigationDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: 'Today'),
+          NavigationDestination(icon: Icon(Icons.auto_graph), selectedIcon: Icon(Icons.auto_graph), label: 'Trends'),
+          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
     );

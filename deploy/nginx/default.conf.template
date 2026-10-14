@@ -28,6 +28,17 @@ server {
         proxy_set_header Host $host;
     }
 
+    # Firebase's Google sign-in pages, served from this domain. Safari blocks the
+    # sign-in redirect when it runs on <project>.firebaseapp.com, which breaks
+    # login in an app opened from the iPhone home screen. FIREBASE_AUTH_DOMAIN
+    # on the API is this site's hostname.
+    location /__/ {
+        set $firebase_auth_host ${FIREBASE_PROJECT_ID}.firebaseapp.com;
+        proxy_pass https://$firebase_auth_host;
+        proxy_ssl_server_name on;
+        proxy_set_header Host $firebase_auth_host;
+    }
+
     location = /index.html {
         add_header Cache-Control "no-cache";
     }

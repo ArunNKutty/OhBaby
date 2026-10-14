@@ -40,6 +40,7 @@ services:
     environment:
       PORT: "80"
       API_UPSTREAM: 127.0.0.1:47220
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
     network_mode: service:duckdb
     depends_on:
       api:

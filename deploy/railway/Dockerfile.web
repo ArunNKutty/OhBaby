@@ -19,10 +19,11 @@ RUN flutter pub get \
     && flutter build web --release --no-web-resources-cdn --dart-define=API_BASE=
 
 FROM nginx:1.27-alpine AS web
-ENV NGINX_ENVSUBST_FILTER=^(PORT|API_UPSTREAM|NGINX_LOCAL_RESOLVERS)$
+ENV NGINX_ENVSUBST_FILTER=^(PORT|API_UPSTREAM|NGINX_LOCAL_RESOLVERS|FIREBASE_PROJECT_ID)$
 ENV NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
 ENV PORT=80
 ENV API_UPSTREAM=127.0.0.1:47220
+ENV FIREBASE_PROJECT_ID=
 COPY deploy/nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=web-build /src/build/web /usr/share/nginx/html
 EXPOSE 80

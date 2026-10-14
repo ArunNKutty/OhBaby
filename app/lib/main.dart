@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'data/app_database.dart';
 import 'data/drift_repository.dart';
@@ -13,6 +15,10 @@ import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks(['TeX Gyre Heros'], await rootBundle.loadString('assets/fonts/GUST-FONT-LICENSE.txt'));
+    yield LicenseEntryWithLineBreaks(['Nunito'], await rootBundle.loadString('assets/fonts/OFL.txt'));
+  });
   final store = FeedingStore(storageReady: false);
   final api = ApiClient();
   final sync = SyncService(store);
@@ -92,17 +98,26 @@ class _BabyFeedTrackerAppState extends State<BabyFeedTrackerApp> with WidgetsBin
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Oh baby baby!',
-      debugShowCheckedModeBanner: false,
-      theme: buildTheme(),
-      builder: (context, child) => Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: child ?? const SizedBox.shrink(),
+    return ListenableBuilder(
+      listenable: widget.store,
+      builder: (context, home) => MaterialApp(
+        title: 'Oh baby baby!',
+        debugShowCheckedModeBanner: false,
+        theme: buildTheme(Brightness.light),
+        darkTheme: buildTheme(Brightness.dark),
+        themeMode: widget.store.themeMode,
+        builder: (context, child) => ColoredBox(
+          color: context.colors.bg,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
         ),
+        home: home,
       ),
-      home: SplashScreen(store: widget.store, duration: widget.splashDuration),
+      child: SplashScreen(store: widget.store, duration: widget.splashDuration),
     );
   }
 }

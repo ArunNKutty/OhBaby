@@ -1,11 +1,8 @@
-CREATE TYPE feeding_type AS ENUM ('breast', 'formula', 'breast_milk');
-
-CREATE TYPE side AS ENUM ('left', 'right');
-
 CREATE TABLE users (
     id UUID PRIMARY KEY,
     email VARCHAR UNIQUE NOT NULL,
     google_sub VARCHAR UNIQUE,
+    firebase_uid VARCHAR UNIQUE,
     created_at TIMESTAMPTZ NOT NULL,
     deleted_at TIMESTAMPTZ
 );
@@ -26,25 +23,33 @@ CREATE TABLE memberships (
 
 CREATE SEQUENCE change_seq;
 
-CREATE TABLE feedings (
+-- One row per thing logged for a baby. The API checks type and which fields apply.
+CREATE TABLE entries (
     id UUID PRIMARY KEY,
     baby_id UUID NOT NULL,
-    type feeding_type NOT NULL,
+    type VARCHAR NOT NULL,
     start_utc TIMESTAMPTZ NOT NULL,
     end_utc TIMESTAMPTZ NOT NULL,
     utc_offset_min SMALLINT NOT NULL,
-    left_ms INTEGER DEFAULT 0,
-    right_ms INTEGER DEFAULT 0,
-    end_side side,
-    amount_ml INTEGER DEFAULT 0,
-    notes VARCHAR DEFAULT '',
+    left_ms INTEGER NOT NULL DEFAULT 0,
+    right_ms INTEGER NOT NULL DEFAULT 0,
+    end_side VARCHAR,
+    amount_ml INTEGER NOT NULL DEFAULT 0,
+    left_ml INTEGER NOT NULL DEFAULT 0,
+    right_ml INTEGER NOT NULL DEFAULT 0,
+    diaper VARCHAR,
+    rash BOOLEAN NOT NULL DEFAULT FALSE,
+    title VARCHAR NOT NULL DEFAULT '',
+    value VARCHAR NOT NULL DEFAULT '',
+    unit VARCHAR NOT NULL DEFAULT '',
+    notes VARCHAR NOT NULL DEFAULT '',
     created_by UUID NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL,
     deleted_at TIMESTAMPTZ,
     change_no BIGINT NOT NULL DEFAULT nextval('change_seq')
 );
 
-CREATE INDEX feedings_baby_change ON feedings (baby_id, change_no);
+CREATE INDEX entries_baby_change ON entries (baby_id, change_no);
 
 CREATE TABLE events (
     event_id UUID PRIMARY KEY,
@@ -66,4 +71,4 @@ CREATE TABLE refresh_tokens (
     expires_at TIMESTAMPTZ NOT NULL,
     revoked_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL
-);
+)

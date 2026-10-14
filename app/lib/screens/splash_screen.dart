@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../data/feeding_store.dart';
 import '../theme.dart';
 import '../widgets/app_logo.dart';
+import '../widgets/common.dart';
 import 'login_screen.dart';
 import 'main_shell.dart';
 
@@ -64,23 +65,21 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: AppColors.indigo,
+    final c = context.colors;
+    return Scaffold(
+      backgroundColor: c.bg,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AppMark(size: 120),
-            SizedBox(height: 24),
+            const BabyAvatar(size: 132),
+            const SizedBox(height: 24),
             Text(
               AppLogo.name,
-              style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w800),
+              style: TextStyle(fontFamily: wordmarkFont, color: c.ink, fontSize: 32, fontWeight: FontWeight.w800),
             ),
-            SizedBox(height: 12),
-            Text(
-              'Every feed, day and night.',
-              style: TextStyle(color: AppColors.cream, fontSize: 16),
-            ),
+            const SizedBox(height: 10),
+            Text('Every feed, day and night.', style: TextStyle(color: c.muted, fontSize: 16)),
           ],
         ),
       ),

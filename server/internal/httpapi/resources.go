@@ -80,38 +80,65 @@ func (s *Server) createBaby(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, baby)
 }
 
-func (s *Server) renameBaby(w http.ResponseWriter, r *http.Request) {
+// updateBaby takes "name" and/or "birth_date" (YYYY-MM-DD, or null to clear).
+func (s *Server) updateBaby(w http.ResponseWriter, r *http.Request) {
 	id, _ := s.userID(r)
 	babyID := r.PathValue("id")
 	if !validUUID(babyID) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_baby"})
 		return
 	}
-	var body struct {
-		Name string `json:"name"`
-	}
+	var body map[string]json.RawMessage
 	if err := readJSON(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_name"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_baby"})
 		return
 	}
-	name := strings.TrimSpace(body.Name)
-	if name == "" || len(name) > 80 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_name"})
+	var name *string
+	if raw, ok := body["name"]; ok {
+		var v string
+		if err := json.Unmarshal(raw, &v); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_name"})
+			return
+		}
+		v = strings.TrimSpace(v)
+		if v == "" || len(v) > 80 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_name"})
+			return
+		}
+		name = &v
+	}
+	raw, setBirth := body["birth_date"]
+	var birth *string
+	if setBirth && string(raw) != "null" {
+		var v string
+		if err := json.Unmarshal(raw, &v); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_birth_date"})
+			return
+		}
+		d, err := time.Parse("2006-01-02", v)
+		if err != nil || d.After(time.Now().UTC().Add(24*time.Hour)) {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_birth_date"})
+			return
+		}
+		birth = &v
+	}
+	if name == nil && !setBirth {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "nothing_to_change"})
 		return
 	}
-	baby, err := s.store.RenameBaby(r.Context(), id, babyID, name)
+	baby, err := s.store.UpdateBaby(r.Context(), id, babyID, name, setBirth, birth)
 	if errors.Is(err, store.ErrNotFound) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not_found"})
 		return
 	}
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "rename_failed"})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "update_failed"})
 		return
 	}
 	writeJSON(w, http.StatusOK, baby)
 }
 
-func (s *Server) listFeedings(w http.ResponseWriter, r *http.Request) {
+func (s *Server) listEntries(w http.ResponseWriter, r *http.Request) {
 	userID, _ := s.userID(r)
 	babyID := r.PathValue("id")
 	if !validUUID(babyID) {
@@ -127,7 +154,7 @@ func (s *Server) listFeedings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	list, next, err := s.store.FeedingsSince(r.Context(), userID, babyID, since)
+	list, next, err := s.store.EntriesSince(r.Context(), userID, babyID, since)
 	if errors.Is(err, store.ErrNotFound) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not_found"})
 		return
@@ -137,31 +164,31 @@ func (s *Server) listFeedings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := make([]map[string]any, 0, len(list))
-	for _, f := range list {
-		out = append(out, feedingJSON(f))
+	for _, e := range list {
+		out = append(out, entryJSON(e))
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"feedings": out, "sync_token": next})
+	writeJSON(w, http.StatusOK, map[string]any{"entries": out, "sync_token": next})
 }
 
-func (s *Server) putFeeding(w http.ResponseWriter, r *http.Request) {
+func (s *Server) putEntry(w http.ResponseWriter, r *http.Request) {
 	userID, _ := s.userID(r)
 	babyID := r.PathValue("id")
-	feedingID := r.PathValue("feedingId")
-	if !validUUID(babyID) || !validUUID(feedingID) {
+	entryID := r.PathValue("entryId")
+	if !validUUID(babyID) || !validUUID(entryID) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_id"})
 		return
 	}
-	var body feedingIn
+	var body entryIn
 	if err := readJSON(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_feeding"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_entry"})
 		return
 	}
-	f, err := body.toFeeding(babyID, feedingID)
+	e, err := body.toEntry(babyID, entryID)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	saved, err := s.store.UpsertFeeding(r.Context(), userID, f)
+	saved, err := s.store.UpsertEntry(r.Context(), userID, e)
 	if errors.Is(err, store.ErrNotFound) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not_found"})
 		return
@@ -174,18 +201,18 @@ func (s *Server) putFeeding(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "save_failed"})
 		return
 	}
-	writeJSON(w, http.StatusOK, feedingJSON(saved))
+	writeJSON(w, http.StatusOK, entryJSON(saved))
 }
 
-func (s *Server) deleteFeeding(w http.ResponseWriter, r *http.Request) {
+func (s *Server) deleteEntry(w http.ResponseWriter, r *http.Request) {
 	userID, _ := s.userID(r)
 	babyID := r.PathValue("id")
-	feedingID := r.PathValue("feedingId")
-	if !validUUID(babyID) || !validUUID(feedingID) {
+	entryID := r.PathValue("entryId")
+	if !validUUID(babyID) || !validUUID(entryID) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_id"})
 		return
 	}
-	saved, err := s.store.DeleteFeeding(r.Context(), userID, babyID, feedingID, time.Now().UTC())
+	saved, err := s.store.DeleteEntry(r.Context(), userID, babyID, entryID, time.Now().UTC())
 	if errors.Is(err, store.ErrNotFound) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not_found"})
 		return
@@ -194,39 +221,7 @@ func (s *Server) deleteFeeding(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "delete_failed"})
 		return
 	}
-	writeJSON(w, http.StatusOK, feedingJSON(saved))
-}
-
-func (s *Server) weekSummary(w http.ResponseWriter, r *http.Request) {
-	userID, _ := s.userID(r)
-	babyID := r.PathValue("id")
-	if !validUUID(babyID) {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_baby"})
-		return
-	}
-	start, err := time.Parse("2006-01-02", r.URL.Query().Get("start"))
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_start"})
-		return
-	}
-	today := start
-	if raw := r.URL.Query().Get("today"); raw != "" {
-		today, err = time.Parse("2006-01-02", raw)
-		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_today"})
-			return
-		}
-	}
-	list, err := s.store.FeedingsForBaby(r.Context(), userID, babyID)
-	if errors.Is(err, store.ErrNotFound) {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not_found"})
-		return
-	}
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "summary_failed"})
-		return
-	}
-	writeJSON(w, http.StatusOK, store.SummarizeWeek(list, start, today))
+	writeJSON(w, http.StatusOK, entryJSON(saved))
 }
 
 var allowedEvents = map[string]bool{
@@ -234,6 +229,7 @@ var allowedEvents = map[string]bool{
 	"feeding_deleted": true, "timer_started": true, "day_changed": true,
 	"week_viewed": true, "sign_in_started": true, "sign_in_completed": true,
 	"sync_failed": true, "client_error": true,
+	"entry_saved": true, "entry_deleted": true, "quick_add": true, "trends_viewed": true,
 }
 
 func (s *Server) postEvents(w http.ResponseWriter, r *http.Request) {
@@ -322,7 +318,7 @@ func sanitizeProps(in map[string]any) map[string]any {
 	return out
 }
 
-type feedingIn struct {
+type entryIn struct {
 	Type      string  `json:"type"`
 	Start     string  `json:"start_utc"`
 	End       string  `json:"end_utc"`
@@ -331,85 +327,124 @@ type feedingIn struct {
 	Right     int     `json:"right_ms"`
 	EndSide   *string `json:"end_side"`
 	Amount    int     `json:"amount_ml"`
+	LeftMl    int     `json:"left_ml"`
+	RightMl   int     `json:"right_ml"`
+	Diaper    *string `json:"diaper"`
+	Rash      bool    `json:"rash"`
+	Title     string  `json:"title"`
+	Value     string  `json:"value"`
+	Unit      string  `json:"unit"`
 	Notes     string  `json:"notes"`
 	UpdatedAt string  `json:"updated_at"`
 }
 
-func (in feedingIn) toFeeding(babyID, id string) (store.Feeding, error) {
-	kind := in.Type
-	if kind == "bottle" {
-		kind = "formula"
-	}
-	switch kind {
-	case "breast", "formula", "breast_milk":
-	default:
-		return store.Feeding{}, errors.New("invalid_type")
-	}
+// toEntry checks the fields the type uses and clears the ones it does not.
+func (in entryIn) toEntry(babyID, id string) (store.Entry, error) {
 	start, err := time.Parse(time.RFC3339, in.Start)
 	if err != nil {
-		return store.Feeding{}, errors.New("invalid_time")
+		return store.Entry{}, errors.New("invalid_time")
 	}
 	end, err := time.Parse(time.RFC3339, in.End)
 	if err != nil {
-		return store.Feeding{}, errors.New("invalid_time")
+		return store.Entry{}, errors.New("invalid_time")
 	}
 	if end.Before(start) {
-		return store.Feeding{}, errors.New("invalid_time")
+		return store.Entry{}, errors.New("invalid_time")
 	}
 	if in.Offset < -14*60 || in.Offset > 14*60 {
-		return store.Feeding{}, errors.New("invalid_offset")
+		return store.Entry{}, errors.New("invalid_offset")
 	}
-	if kind == "breast" {
+	if in.Left < 0 || in.Right < 0 || in.Amount < 0 || in.Amount > 2000 ||
+		in.LeftMl < 0 || in.LeftMl > 2000 || in.RightMl < 0 || in.RightMl > 2000 {
+		return store.Entry{}, errors.New("invalid_amount")
+	}
+	e := store.Entry{ID: id, BabyID: babyID, Type: in.Type, StartUTC: start.UTC(), EndUTC: end.UTC(), OffsetMin: in.Offset}
+	title := strings.TrimSpace(in.Title)
+	value := strings.TrimSpace(in.Value)
+	unit := strings.TrimSpace(in.Unit)
+	switch in.Type {
+	case "breast":
 		if in.EndSide == nil || (*in.EndSide != "left" && *in.EndSide != "right") {
-			return store.Feeding{}, errors.New("end_side_required")
+			return store.Entry{}, errors.New("end_side_required")
 		}
-	} else {
-		in.EndSide = nil
-		in.Left = 0
-		in.Right = 0
-	}
-	if in.Amount < 0 || in.Amount > 2000 || in.Left < 0 || in.Right < 0 {
-		return store.Feeding{}, errors.New("invalid_amount")
+		e.LeftMs, e.RightMs, e.EndSide = in.Left, in.Right, in.EndSide
+	case "formula", "breast_milk":
+		e.AmountMl = in.Amount
+	case "pump":
+		e.LeftMl, e.RightMl, e.AmountMl = in.LeftMl, in.RightMl, in.Amount
+		if in.LeftMl+in.RightMl > 0 {
+			e.AmountMl = in.LeftMl + in.RightMl
+		}
+		if e.AmountMl == 0 && !end.After(start) {
+			return store.Entry{}, errors.New("pump_empty")
+		}
+	case "diaper":
+		if in.Diaper == nil {
+			return store.Entry{}, errors.New("diaper_required")
+		}
+		switch *in.Diaper {
+		case "wet", "dirty", "both", "dry":
+		default:
+			return store.Entry{}, errors.New("diaper_required")
+		}
+		e.Diaper, e.Rash = in.Diaper, in.Rash
+	case "routine", "other":
+		if title == "" || len(title) > 80 {
+			return store.Entry{}, errors.New("title_required")
+		}
+		if len(value) > 200 || len(unit) > 16 {
+			return store.Entry{}, errors.New("value_too_long")
+		}
+		e.Title = title
+		if in.Type == "other" {
+			e.Value, e.Unit = value, unit
+		}
+	default:
+		return store.Entry{}, errors.New("invalid_type")
 	}
 	notes := strings.TrimSpace(in.Notes)
 	if len(notes) > 4000 {
-		return store.Feeding{}, errors.New("notes_too_long")
+		return store.Entry{}, errors.New("notes_too_long")
 	}
-	updated := time.Now().UTC()
+	e.Notes = notes
+	e.UpdatedAt = time.Now().UTC()
 	if in.UpdatedAt != "" {
 		parsed, err := time.Parse(time.RFC3339, in.UpdatedAt)
 		if err != nil {
-			return store.Feeding{}, errors.New("invalid_time")
+			return store.Entry{}, errors.New("invalid_time")
 		}
-		updated = parsed.UTC()
+		e.UpdatedAt = parsed.UTC()
 	}
-	return store.Feeding{
-		ID: id, BabyID: babyID, Type: kind, StartUTC: start.UTC(), EndUTC: end.UTC(),
-		OffsetMin: in.Offset, LeftMs: in.Left, RightMs: in.Right, EndSide: in.EndSide,
-		AmountMl: in.Amount, Notes: notes, UpdatedAt: updated,
-	}, nil
+	return e, nil
 }
 
-func feedingJSON(f store.Feeding) map[string]any {
+func entryJSON(e store.Entry) map[string]any {
 	var deleted any
-	if f.DeletedAt != nil {
-		deleted = f.DeletedAt.UTC().Format(time.RFC3339)
+	if e.DeletedAt != nil {
+		deleted = e.DeletedAt.UTC().Format(time.RFC3339)
 	}
 	return map[string]any{
-		"id":             f.ID,
-		"baby_id":        f.BabyID,
-		"type":           f.Type,
-		"start_utc":      f.StartUTC.UTC().Format(time.RFC3339),
-		"end_utc":        f.EndUTC.UTC().Format(time.RFC3339),
-		"utc_offset_min": f.OffsetMin,
-		"left_ms":        f.LeftMs,
-		"right_ms":       f.RightMs,
-		"end_side":       f.EndSide,
-		"amount_ml":      f.AmountMl,
-		"notes":          f.Notes,
-		"updated_at":     f.UpdatedAt.UTC().Format(time.RFC3339),
+		"id":             e.ID,
+		"baby_id":        e.BabyID,
+		"type":           e.Type,
+		"start_utc":      e.StartUTC.UTC().Format(time.RFC3339),
+		"end_utc":        e.EndUTC.UTC().Format(time.RFC3339),
+		"utc_offset_min": e.OffsetMin,
+		"left_ms":        e.LeftMs,
+		"right_ms":       e.RightMs,
+		"end_side":       e.EndSide,
+		"amount_ml":      e.AmountMl,
+		"left_ml":        e.LeftMl,
+		"right_ml":       e.RightMl,
+		"diaper":         e.Diaper,
+		"rash":           e.Rash,
+		"title":          e.Title,
+		"value":          e.Value,
+		"unit":           e.Unit,
+		"notes":          e.Notes,
+		"updated_at":     e.UpdatedAt.UTC().Format(time.RFC3339),
 		"deleted_at":     deleted,
-		"change_no":      f.ChangeNo,
+		"change_no":      e.ChangeNo,
 	}
 }
 

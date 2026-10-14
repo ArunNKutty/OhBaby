@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../data/feeding_store.dart';
-import '../models/feeding.dart';
+import '../models/entry.dart';
 import 'api_client.dart';
-import 'feeding_codec.dart';
+import 'entry_codec.dart';
 
 class SyncService {
   SyncService(this.store);
@@ -27,12 +27,12 @@ class SyncService {
     } on ApiException catch (e) {
       store.track('sync_failed', {'reason': _reason(e)});
       store.setSyncResult(
-        error: "Couldn't sync just now. Feedings are still saved on this device.",
+        error: "Couldn't sync just now. Everything is still saved on this device.",
       );
     } catch (_) {
       store.track('sync_failed', {'reason': 'network'});
       store.setSyncResult(
-        error: "Couldn't reach the backup server. Feedings are still saved on this device.",
+        error: "Couldn't reach the backup server. Everything is still saved on this device.",
       );
     } finally {
       _running = false;
@@ -96,21 +96,40 @@ class SyncService {
     // An account that already has a baby keeps using it, so a new device or a
     // fresh sign-in loads that log instead of starting an empty one.
     final res = await _authed(api, 'GET', '/v1/babies');
-    final babies = (jsonDecode(res.body) as Map<String, dynamic>)['babies'] as List<dynamic>? ?? const [];
-    final ids = [for (final b in babies) (b as Map<String, dynamic>)['id'] as String? ?? ''];
-    if (ids.contains(store.babyId)) return;
-    if (babies.isNotEmpty) {
-      final first = babies.first as Map<String, dynamic>;
-      await store.adoptBaby(first['id'] as String, first['name'] as String? ?? '');
+    final babies = ((jsonDecode(res.body) as Map<String, dynamic>)['babies'] as List<dynamic>? ?? const [])
+        .cast<Map<String, dynamic>>();
+    final mine = babies.where((b) => b['id'] == store.babyId).firstOrNull;
+    if (mine == null && babies.isNotEmpty) {
+      final first = babies.first;
+      await store.adoptBaby(first['id'] as String, first['name'] as String? ?? '',
+          birthDate: first['birth_date'] as String?);
       return;
     }
-    await _authed(
-      api,
-      'POST',
-      '/v1/babies',
-      body: {'id': store.babyId, 'name': store.babyName},
-    );
+    if (mine == null) {
+      await _authed(api, 'POST', '/v1/babies', body: {
+        'id': store.babyId,
+        'name': store.babyName,
+        if (store.birthDate != null) 'birth_date': _isoDate(store.birthDate!),
+      });
+      await store.markBabySynced();
+      return;
+    }
+    if (store.babyDirty) {
+      await _authed(api, 'PATCH', '/v1/babies/${store.babyId}', body: {
+        'name': store.babyName,
+        'birth_date': store.birthDate == null ? null : _isoDate(store.birthDate!),
+      });
+      await store.markBabySynced();
+    } else {
+      await store.applyBabyFromServer(
+        name: mine['name'] as String? ?? '',
+        birthDate: mine['birth_date'] as String?,
+      );
+    }
   }
+
+  String _isoDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   Future<void> _push(ApiClient api) async {
     final pending = Map<String, String>.of(store.outbox);
@@ -120,14 +139,14 @@ class SyncService {
           await _authed(
             api,
             'DELETE',
-            '/v1/babies/${store.babyId}/feedings/${entry.key}',
+            '/v1/babies/${store.babyId}/entries/${entry.key}',
             ok: const {200, 404},
           );
         } on ApiException catch (e) {
           if (e.status != 404) rethrow;
         }
       } else {
-        final matches = store.feedings.where((f) => f.id == entry.key);
+        final matches = store.entries.where((e) => e.id == entry.key);
         if (matches.isEmpty) {
           await store.ackOutbox(entry.key);
           continue;
@@ -135,8 +154,8 @@ class SyncService {
         await _authed(
           api,
           'PUT',
-          '/v1/babies/${store.babyId}/feedings/${entry.key}',
-          body: feedingToApi(matches.first),
+          '/v1/babies/${store.babyId}/entries/${entry.key}',
+          body: entryToApi(matches.first),
         );
       }
       await store.ackOutbox(entry.key);
@@ -148,19 +167,20 @@ class SyncService {
     final res = await _authed(
       api,
       'GET',
-      '/v1/babies/${store.babyId}/feedings',
+      '/v1/babies/${store.babyId}/entries',
       query: {'since': since},
     );
     final json = jsonDecode(res.body) as Map<String, dynamic>;
-    final rows = (json['feedings'] as List<dynamic>? ?? const []);
-    final remote = <Feeding>[];
+    final rows = (json['entries'] as List<dynamic>? ?? const []);
+    final remote = <Entry>[];
     final deleted = <String>{};
     for (final row in rows) {
       final map = row as Map<String, dynamic>;
       if (map['deleted_at'] != null) {
         deleted.add(map['id'] as String);
       } else {
-        remote.add(feedingFromApi(map));
+        final entry = entryFromApi(map);
+        if (entry != null) remote.add(entry);
       }
     }
     await store.applyRemote(remote, deletedIds: deleted);

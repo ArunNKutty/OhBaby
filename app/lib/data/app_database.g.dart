@@ -3,12 +3,11 @@
 part of 'app_database.dart';
 
 // ignore_for_file: type=lint
-class $FeedingsTable extends Feedings
-    with TableInfo<$FeedingsTable, StoredFeeding> {
+class $EntriesTable extends Entries with TableInfo<$EntriesTable, StoredEntry> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $FeedingsTable(this.attachedDatabase, [this._alias]);
+  $EntriesTable(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<String> id = GeneratedColumn<String>(
@@ -59,6 +58,56 @@ class $FeedingsTable extends Feedings
       type: DriftSqlType.int,
       requiredDuringInsert: false,
       defaultValue: const Constant(0));
+  static const VerificationMeta _leftMlMeta = const VerificationMeta('leftMl');
+  @override
+  late final GeneratedColumn<int> leftMl = GeneratedColumn<int>(
+      'left_ml', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _rightMlMeta =
+      const VerificationMeta('rightMl');
+  @override
+  late final GeneratedColumn<int> rightMl = GeneratedColumn<int>(
+      'right_ml', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _diaperMeta = const VerificationMeta('diaper');
+  @override
+  late final GeneratedColumn<String> diaper = GeneratedColumn<String>(
+      'diaper', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _rashMeta = const VerificationMeta('rash');
+  @override
+  late final GeneratedColumn<bool> rash = GeneratedColumn<bool>(
+      'rash', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("rash" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+      'title', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(''));
+  static const VerificationMeta _valueMeta = const VerificationMeta('value');
+  @override
+  late final GeneratedColumn<String> value = GeneratedColumn<String>(
+      'value', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(''));
+  static const VerificationMeta _unitMeta = const VerificationMeta('unit');
+  @override
+  late final GeneratedColumn<String> unit = GeneratedColumn<String>(
+      'unit', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(''));
   static const VerificationMeta _notesMeta = const VerificationMeta('notes');
   @override
   late final GeneratedColumn<String> notes = GeneratedColumn<String>(
@@ -88,6 +137,13 @@ class $FeedingsTable extends Feedings
         rightMs,
         endSide,
         amountMl,
+        leftMl,
+        rightMl,
+        diaper,
+        rash,
+        title,
+        value,
+        unit,
         notes,
         updatedAt,
         utcOffsetMin
@@ -96,9 +152,9 @@ class $FeedingsTable extends Feedings
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
-  static const String $name = 'feedings';
+  static const String $name = 'entries';
   @override
-  VerificationContext validateIntegrity(Insertable<StoredFeeding> instance,
+  VerificationContext validateIntegrity(Insertable<StoredEntry> instance,
       {bool isInserting = false}) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
@@ -141,6 +197,34 @@ class $FeedingsTable extends Feedings
       context.handle(_amountMlMeta,
           amountMl.isAcceptableOrUnknown(data['amount_ml']!, _amountMlMeta));
     }
+    if (data.containsKey('left_ml')) {
+      context.handle(_leftMlMeta,
+          leftMl.isAcceptableOrUnknown(data['left_ml']!, _leftMlMeta));
+    }
+    if (data.containsKey('right_ml')) {
+      context.handle(_rightMlMeta,
+          rightMl.isAcceptableOrUnknown(data['right_ml']!, _rightMlMeta));
+    }
+    if (data.containsKey('diaper')) {
+      context.handle(_diaperMeta,
+          diaper.isAcceptableOrUnknown(data['diaper']!, _diaperMeta));
+    }
+    if (data.containsKey('rash')) {
+      context.handle(
+          _rashMeta, rash.isAcceptableOrUnknown(data['rash']!, _rashMeta));
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+          _titleMeta, title.isAcceptableOrUnknown(data['title']!, _titleMeta));
+    }
+    if (data.containsKey('value')) {
+      context.handle(
+          _valueMeta, value.isAcceptableOrUnknown(data['value']!, _valueMeta));
+    }
+    if (data.containsKey('unit')) {
+      context.handle(
+          _unitMeta, unit.isAcceptableOrUnknown(data['unit']!, _unitMeta));
+    }
     if (data.containsKey('notes')) {
       context.handle(
           _notesMeta, notes.isAcceptableOrUnknown(data['notes']!, _notesMeta));
@@ -161,9 +245,9 @@ class $FeedingsTable extends Feedings
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  StoredFeeding map(Map<String, dynamic> data, {String? tablePrefix}) {
+  StoredEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return StoredFeeding(
+    return StoredEntry(
       id: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
       type: attachedDatabase.typeMapping
@@ -180,6 +264,20 @@ class $FeedingsTable extends Feedings
           .read(DriftSqlType.string, data['${effectivePrefix}end_side']),
       amountMl: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}amount_ml'])!,
+      leftMl: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}left_ml'])!,
+      rightMl: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}right_ml'])!,
+      diaper: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}diaper']),
+      rash: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}rash'])!,
+      title: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}title'])!,
+      value: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}value'])!,
+      unit: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}unit'])!,
       notes: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}notes'])!,
       updatedAt: attachedDatabase.typeMapping
@@ -190,12 +288,12 @@ class $FeedingsTable extends Feedings
   }
 
   @override
-  $FeedingsTable createAlias(String alias) {
-    return $FeedingsTable(attachedDatabase, alias);
+  $EntriesTable createAlias(String alias) {
+    return $EntriesTable(attachedDatabase, alias);
   }
 }
 
-class StoredFeeding extends DataClass implements Insertable<StoredFeeding> {
+class StoredEntry extends DataClass implements Insertable<StoredEntry> {
   final String id;
   final String type;
   final String startIso;
@@ -204,10 +302,17 @@ class StoredFeeding extends DataClass implements Insertable<StoredFeeding> {
   final int rightMs;
   final String? endSide;
   final int amountMl;
+  final int leftMl;
+  final int rightMl;
+  final String? diaper;
+  final bool rash;
+  final String title;
+  final String value;
+  final String unit;
   final String notes;
   final String? updatedAt;
   final int? utcOffsetMin;
-  const StoredFeeding(
+  const StoredEntry(
       {required this.id,
       required this.type,
       required this.startIso,
@@ -216,6 +321,13 @@ class StoredFeeding extends DataClass implements Insertable<StoredFeeding> {
       required this.rightMs,
       this.endSide,
       required this.amountMl,
+      required this.leftMl,
+      required this.rightMl,
+      this.diaper,
+      required this.rash,
+      required this.title,
+      required this.value,
+      required this.unit,
       required this.notes,
       this.updatedAt,
       this.utcOffsetMin});
@@ -232,6 +344,15 @@ class StoredFeeding extends DataClass implements Insertable<StoredFeeding> {
       map['end_side'] = Variable<String>(endSide);
     }
     map['amount_ml'] = Variable<int>(amountMl);
+    map['left_ml'] = Variable<int>(leftMl);
+    map['right_ml'] = Variable<int>(rightMl);
+    if (!nullToAbsent || diaper != null) {
+      map['diaper'] = Variable<String>(diaper);
+    }
+    map['rash'] = Variable<bool>(rash);
+    map['title'] = Variable<String>(title);
+    map['value'] = Variable<String>(value);
+    map['unit'] = Variable<String>(unit);
     map['notes'] = Variable<String>(notes);
     if (!nullToAbsent || updatedAt != null) {
       map['updated_at'] = Variable<String>(updatedAt);
@@ -242,8 +363,8 @@ class StoredFeeding extends DataClass implements Insertable<StoredFeeding> {
     return map;
   }
 
-  FeedingsCompanion toCompanion(bool nullToAbsent) {
-    return FeedingsCompanion(
+  EntriesCompanion toCompanion(bool nullToAbsent) {
+    return EntriesCompanion(
       id: Value(id),
       type: Value(type),
       startIso: Value(startIso),
@@ -254,6 +375,14 @@ class StoredFeeding extends DataClass implements Insertable<StoredFeeding> {
           ? const Value.absent()
           : Value(endSide),
       amountMl: Value(amountMl),
+      leftMl: Value(leftMl),
+      rightMl: Value(rightMl),
+      diaper:
+          diaper == null && nullToAbsent ? const Value.absent() : Value(diaper),
+      rash: Value(rash),
+      title: Value(title),
+      value: Value(value),
+      unit: Value(unit),
       notes: Value(notes),
       updatedAt: updatedAt == null && nullToAbsent
           ? const Value.absent()
@@ -264,10 +393,10 @@ class StoredFeeding extends DataClass implements Insertable<StoredFeeding> {
     );
   }
 
-  factory StoredFeeding.fromJson(Map<String, dynamic> json,
+  factory StoredEntry.fromJson(Map<String, dynamic> json,
       {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return StoredFeeding(
+    return StoredEntry(
       id: serializer.fromJson<String>(json['id']),
       type: serializer.fromJson<String>(json['type']),
       startIso: serializer.fromJson<String>(json['startIso']),
@@ -276,6 +405,13 @@ class StoredFeeding extends DataClass implements Insertable<StoredFeeding> {
       rightMs: serializer.fromJson<int>(json['rightMs']),
       endSide: serializer.fromJson<String?>(json['endSide']),
       amountMl: serializer.fromJson<int>(json['amountMl']),
+      leftMl: serializer.fromJson<int>(json['leftMl']),
+      rightMl: serializer.fromJson<int>(json['rightMl']),
+      diaper: serializer.fromJson<String?>(json['diaper']),
+      rash: serializer.fromJson<bool>(json['rash']),
+      title: serializer.fromJson<String>(json['title']),
+      value: serializer.fromJson<String>(json['value']),
+      unit: serializer.fromJson<String>(json['unit']),
       notes: serializer.fromJson<String>(json['notes']),
       updatedAt: serializer.fromJson<String?>(json['updatedAt']),
       utcOffsetMin: serializer.fromJson<int?>(json['utcOffsetMin']),
@@ -293,13 +429,20 @@ class StoredFeeding extends DataClass implements Insertable<StoredFeeding> {
       'rightMs': serializer.toJson<int>(rightMs),
       'endSide': serializer.toJson<String?>(endSide),
       'amountMl': serializer.toJson<int>(amountMl),
+      'leftMl': serializer.toJson<int>(leftMl),
+      'rightMl': serializer.toJson<int>(rightMl),
+      'diaper': serializer.toJson<String?>(diaper),
+      'rash': serializer.toJson<bool>(rash),
+      'title': serializer.toJson<String>(title),
+      'value': serializer.toJson<String>(value),
+      'unit': serializer.toJson<String>(unit),
       'notes': serializer.toJson<String>(notes),
       'updatedAt': serializer.toJson<String?>(updatedAt),
       'utcOffsetMin': serializer.toJson<int?>(utcOffsetMin),
     };
   }
 
-  StoredFeeding copyWith(
+  StoredEntry copyWith(
           {String? id,
           String? type,
           String? startIso,
@@ -308,10 +451,17 @@ class StoredFeeding extends DataClass implements Insertable<StoredFeeding> {
           int? rightMs,
           Value<String?> endSide = const Value.absent(),
           int? amountMl,
+          int? leftMl,
+          int? rightMl,
+          Value<String?> diaper = const Value.absent(),
+          bool? rash,
+          String? title,
+          String? value,
+          String? unit,
           String? notes,
           Value<String?> updatedAt = const Value.absent(),
           Value<int?> utcOffsetMin = const Value.absent()}) =>
-      StoredFeeding(
+      StoredEntry(
         id: id ?? this.id,
         type: type ?? this.type,
         startIso: startIso ?? this.startIso,
@@ -320,13 +470,20 @@ class StoredFeeding extends DataClass implements Insertable<StoredFeeding> {
         rightMs: rightMs ?? this.rightMs,
         endSide: endSide.present ? endSide.value : this.endSide,
         amountMl: amountMl ?? this.amountMl,
+        leftMl: leftMl ?? this.leftMl,
+        rightMl: rightMl ?? this.rightMl,
+        diaper: diaper.present ? diaper.value : this.diaper,
+        rash: rash ?? this.rash,
+        title: title ?? this.title,
+        value: value ?? this.value,
+        unit: unit ?? this.unit,
         notes: notes ?? this.notes,
         updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
         utcOffsetMin:
             utcOffsetMin.present ? utcOffsetMin.value : this.utcOffsetMin,
       );
-  StoredFeeding copyWithCompanion(FeedingsCompanion data) {
-    return StoredFeeding(
+  StoredEntry copyWithCompanion(EntriesCompanion data) {
+    return StoredEntry(
       id: data.id.present ? data.id.value : this.id,
       type: data.type.present ? data.type.value : this.type,
       startIso: data.startIso.present ? data.startIso.value : this.startIso,
@@ -335,6 +492,13 @@ class StoredFeeding extends DataClass implements Insertable<StoredFeeding> {
       rightMs: data.rightMs.present ? data.rightMs.value : this.rightMs,
       endSide: data.endSide.present ? data.endSide.value : this.endSide,
       amountMl: data.amountMl.present ? data.amountMl.value : this.amountMl,
+      leftMl: data.leftMl.present ? data.leftMl.value : this.leftMl,
+      rightMl: data.rightMl.present ? data.rightMl.value : this.rightMl,
+      diaper: data.diaper.present ? data.diaper.value : this.diaper,
+      rash: data.rash.present ? data.rash.value : this.rash,
+      title: data.title.present ? data.title.value : this.title,
+      value: data.value.present ? data.value.value : this.value,
+      unit: data.unit.present ? data.unit.value : this.unit,
       notes: data.notes.present ? data.notes.value : this.notes,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       utcOffsetMin: data.utcOffsetMin.present
@@ -345,7 +509,7 @@ class StoredFeeding extends DataClass implements Insertable<StoredFeeding> {
 
   @override
   String toString() {
-    return (StringBuffer('StoredFeeding(')
+    return (StringBuffer('StoredEntry(')
           ..write('id: $id, ')
           ..write('type: $type, ')
           ..write('startIso: $startIso, ')
@@ -354,6 +518,13 @@ class StoredFeeding extends DataClass implements Insertable<StoredFeeding> {
           ..write('rightMs: $rightMs, ')
           ..write('endSide: $endSide, ')
           ..write('amountMl: $amountMl, ')
+          ..write('leftMl: $leftMl, ')
+          ..write('rightMl: $rightMl, ')
+          ..write('diaper: $diaper, ')
+          ..write('rash: $rash, ')
+          ..write('title: $title, ')
+          ..write('value: $value, ')
+          ..write('unit: $unit, ')
           ..write('notes: $notes, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('utcOffsetMin: $utcOffsetMin')
@@ -362,12 +533,29 @@ class StoredFeeding extends DataClass implements Insertable<StoredFeeding> {
   }
 
   @override
-  int get hashCode => Object.hash(id, type, startIso, endIso, leftMs, rightMs,
-      endSide, amountMl, notes, updatedAt, utcOffsetMin);
+  int get hashCode => Object.hash(
+      id,
+      type,
+      startIso,
+      endIso,
+      leftMs,
+      rightMs,
+      endSide,
+      amountMl,
+      leftMl,
+      rightMl,
+      diaper,
+      rash,
+      title,
+      value,
+      unit,
+      notes,
+      updatedAt,
+      utcOffsetMin);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is StoredFeeding &&
+      (other is StoredEntry &&
           other.id == this.id &&
           other.type == this.type &&
           other.startIso == this.startIso &&
@@ -376,12 +564,19 @@ class StoredFeeding extends DataClass implements Insertable<StoredFeeding> {
           other.rightMs == this.rightMs &&
           other.endSide == this.endSide &&
           other.amountMl == this.amountMl &&
+          other.leftMl == this.leftMl &&
+          other.rightMl == this.rightMl &&
+          other.diaper == this.diaper &&
+          other.rash == this.rash &&
+          other.title == this.title &&
+          other.value == this.value &&
+          other.unit == this.unit &&
           other.notes == this.notes &&
           other.updatedAt == this.updatedAt &&
           other.utcOffsetMin == this.utcOffsetMin);
 }
 
-class FeedingsCompanion extends UpdateCompanion<StoredFeeding> {
+class EntriesCompanion extends UpdateCompanion<StoredEntry> {
   final Value<String> id;
   final Value<String> type;
   final Value<String> startIso;
@@ -390,11 +585,18 @@ class FeedingsCompanion extends UpdateCompanion<StoredFeeding> {
   final Value<int> rightMs;
   final Value<String?> endSide;
   final Value<int> amountMl;
+  final Value<int> leftMl;
+  final Value<int> rightMl;
+  final Value<String?> diaper;
+  final Value<bool> rash;
+  final Value<String> title;
+  final Value<String> value;
+  final Value<String> unit;
   final Value<String> notes;
   final Value<String?> updatedAt;
   final Value<int?> utcOffsetMin;
   final Value<int> rowid;
-  const FeedingsCompanion({
+  const EntriesCompanion({
     this.id = const Value.absent(),
     this.type = const Value.absent(),
     this.startIso = const Value.absent(),
@@ -403,12 +605,19 @@ class FeedingsCompanion extends UpdateCompanion<StoredFeeding> {
     this.rightMs = const Value.absent(),
     this.endSide = const Value.absent(),
     this.amountMl = const Value.absent(),
+    this.leftMl = const Value.absent(),
+    this.rightMl = const Value.absent(),
+    this.diaper = const Value.absent(),
+    this.rash = const Value.absent(),
+    this.title = const Value.absent(),
+    this.value = const Value.absent(),
+    this.unit = const Value.absent(),
     this.notes = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.utcOffsetMin = const Value.absent(),
     this.rowid = const Value.absent(),
   });
-  FeedingsCompanion.insert({
+  EntriesCompanion.insert({
     required String id,
     required String type,
     required String startIso,
@@ -417,6 +626,13 @@ class FeedingsCompanion extends UpdateCompanion<StoredFeeding> {
     this.rightMs = const Value.absent(),
     this.endSide = const Value.absent(),
     this.amountMl = const Value.absent(),
+    this.leftMl = const Value.absent(),
+    this.rightMl = const Value.absent(),
+    this.diaper = const Value.absent(),
+    this.rash = const Value.absent(),
+    this.title = const Value.absent(),
+    this.value = const Value.absent(),
+    this.unit = const Value.absent(),
     this.notes = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.utcOffsetMin = const Value.absent(),
@@ -425,7 +641,7 @@ class FeedingsCompanion extends UpdateCompanion<StoredFeeding> {
         type = Value(type),
         startIso = Value(startIso),
         endIso = Value(endIso);
-  static Insertable<StoredFeeding> custom({
+  static Insertable<StoredEntry> custom({
     Expression<String>? id,
     Expression<String>? type,
     Expression<String>? startIso,
@@ -434,6 +650,13 @@ class FeedingsCompanion extends UpdateCompanion<StoredFeeding> {
     Expression<int>? rightMs,
     Expression<String>? endSide,
     Expression<int>? amountMl,
+    Expression<int>? leftMl,
+    Expression<int>? rightMl,
+    Expression<String>? diaper,
+    Expression<bool>? rash,
+    Expression<String>? title,
+    Expression<String>? value,
+    Expression<String>? unit,
     Expression<String>? notes,
     Expression<String>? updatedAt,
     Expression<int>? utcOffsetMin,
@@ -448,6 +671,13 @@ class FeedingsCompanion extends UpdateCompanion<StoredFeeding> {
       if (rightMs != null) 'right_ms': rightMs,
       if (endSide != null) 'end_side': endSide,
       if (amountMl != null) 'amount_ml': amountMl,
+      if (leftMl != null) 'left_ml': leftMl,
+      if (rightMl != null) 'right_ml': rightMl,
+      if (diaper != null) 'diaper': diaper,
+      if (rash != null) 'rash': rash,
+      if (title != null) 'title': title,
+      if (value != null) 'value': value,
+      if (unit != null) 'unit': unit,
       if (notes != null) 'notes': notes,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (utcOffsetMin != null) 'utc_offset_min': utcOffsetMin,
@@ -455,7 +685,7 @@ class FeedingsCompanion extends UpdateCompanion<StoredFeeding> {
     });
   }
 
-  FeedingsCompanion copyWith(
+  EntriesCompanion copyWith(
       {Value<String>? id,
       Value<String>? type,
       Value<String>? startIso,
@@ -464,11 +694,18 @@ class FeedingsCompanion extends UpdateCompanion<StoredFeeding> {
       Value<int>? rightMs,
       Value<String?>? endSide,
       Value<int>? amountMl,
+      Value<int>? leftMl,
+      Value<int>? rightMl,
+      Value<String?>? diaper,
+      Value<bool>? rash,
+      Value<String>? title,
+      Value<String>? value,
+      Value<String>? unit,
       Value<String>? notes,
       Value<String?>? updatedAt,
       Value<int?>? utcOffsetMin,
       Value<int>? rowid}) {
-    return FeedingsCompanion(
+    return EntriesCompanion(
       id: id ?? this.id,
       type: type ?? this.type,
       startIso: startIso ?? this.startIso,
@@ -477,6 +714,13 @@ class FeedingsCompanion extends UpdateCompanion<StoredFeeding> {
       rightMs: rightMs ?? this.rightMs,
       endSide: endSide ?? this.endSide,
       amountMl: amountMl ?? this.amountMl,
+      leftMl: leftMl ?? this.leftMl,
+      rightMl: rightMl ?? this.rightMl,
+      diaper: diaper ?? this.diaper,
+      rash: rash ?? this.rash,
+      title: title ?? this.title,
+      value: value ?? this.value,
+      unit: unit ?? this.unit,
       notes: notes ?? this.notes,
       updatedAt: updatedAt ?? this.updatedAt,
       utcOffsetMin: utcOffsetMin ?? this.utcOffsetMin,
@@ -511,6 +755,27 @@ class FeedingsCompanion extends UpdateCompanion<StoredFeeding> {
     if (amountMl.present) {
       map['amount_ml'] = Variable<int>(amountMl.value);
     }
+    if (leftMl.present) {
+      map['left_ml'] = Variable<int>(leftMl.value);
+    }
+    if (rightMl.present) {
+      map['right_ml'] = Variable<int>(rightMl.value);
+    }
+    if (diaper.present) {
+      map['diaper'] = Variable<String>(diaper.value);
+    }
+    if (rash.present) {
+      map['rash'] = Variable<bool>(rash.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (value.present) {
+      map['value'] = Variable<String>(value.value);
+    }
+    if (unit.present) {
+      map['unit'] = Variable<String>(unit.value);
+    }
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
@@ -528,7 +793,7 @@ class FeedingsCompanion extends UpdateCompanion<StoredFeeding> {
 
   @override
   String toString() {
-    return (StringBuffer('FeedingsCompanion(')
+    return (StringBuffer('EntriesCompanion(')
           ..write('id: $id, ')
           ..write('type: $type, ')
           ..write('startIso: $startIso, ')
@@ -537,6 +802,13 @@ class FeedingsCompanion extends UpdateCompanion<StoredFeeding> {
           ..write('rightMs: $rightMs, ')
           ..write('endSide: $endSide, ')
           ..write('amountMl: $amountMl, ')
+          ..write('leftMl: $leftMl, ')
+          ..write('rightMl: $rightMl, ')
+          ..write('diaper: $diaper, ')
+          ..write('rash: $rash, ')
+          ..write('title: $title, ')
+          ..write('value: $value, ')
+          ..write('unit: $unit, ')
           ..write('notes: $notes, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('utcOffsetMin: $utcOffsetMin, ')
@@ -552,11 +824,11 @@ class $OutboxEntriesTable extends OutboxEntries
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $OutboxEntriesTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _feedingIdMeta =
-      const VerificationMeta('feedingId');
+  static const VerificationMeta _entryIdMeta =
+      const VerificationMeta('entryId');
   @override
-  late final GeneratedColumn<String> feedingId = GeneratedColumn<String>(
-      'feeding_id', aliasedName, false,
+  late final GeneratedColumn<String> entryId = GeneratedColumn<String>(
+      'entry_id', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
   static const VerificationMeta _opMeta = const VerificationMeta('op');
   @override
@@ -564,7 +836,7 @@ class $OutboxEntriesTable extends OutboxEntries
       'op', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
   @override
-  List<GeneratedColumn> get $columns => [feedingId, op];
+  List<GeneratedColumn> get $columns => [entryId, op];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -575,11 +847,11 @@ class $OutboxEntriesTable extends OutboxEntries
       {bool isInserting = false}) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
-    if (data.containsKey('feeding_id')) {
-      context.handle(_feedingIdMeta,
-          feedingId.isAcceptableOrUnknown(data['feeding_id']!, _feedingIdMeta));
+    if (data.containsKey('entry_id')) {
+      context.handle(_entryIdMeta,
+          entryId.isAcceptableOrUnknown(data['entry_id']!, _entryIdMeta));
     } else if (isInserting) {
-      context.missing(_feedingIdMeta);
+      context.missing(_entryIdMeta);
     }
     if (data.containsKey('op')) {
       context.handle(_opMeta, op.isAcceptableOrUnknown(data['op']!, _opMeta));
@@ -590,13 +862,13 @@ class $OutboxEntriesTable extends OutboxEntries
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {feedingId};
+  Set<GeneratedColumn> get $primaryKey => {entryId};
   @override
   OutboxEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return OutboxEntry(
-      feedingId: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}feeding_id'])!,
+      entryId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}entry_id'])!,
       op: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}op'])!,
     );
@@ -609,20 +881,20 @@ class $OutboxEntriesTable extends OutboxEntries
 }
 
 class OutboxEntry extends DataClass implements Insertable<OutboxEntry> {
-  final String feedingId;
+  final String entryId;
   final String op;
-  const OutboxEntry({required this.feedingId, required this.op});
+  const OutboxEntry({required this.entryId, required this.op});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
-    map['feeding_id'] = Variable<String>(feedingId);
+    map['entry_id'] = Variable<String>(entryId);
     map['op'] = Variable<String>(op);
     return map;
   }
 
   OutboxEntriesCompanion toCompanion(bool nullToAbsent) {
     return OutboxEntriesCompanion(
-      feedingId: Value(feedingId),
+      entryId: Value(entryId),
       op: Value(op),
     );
   }
@@ -631,7 +903,7 @@ class OutboxEntry extends DataClass implements Insertable<OutboxEntry> {
       {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return OutboxEntry(
-      feedingId: serializer.fromJson<String>(json['feedingId']),
+      entryId: serializer.fromJson<String>(json['entryId']),
       op: serializer.fromJson<String>(json['op']),
     );
   }
@@ -639,18 +911,18 @@ class OutboxEntry extends DataClass implements Insertable<OutboxEntry> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
-      'feedingId': serializer.toJson<String>(feedingId),
+      'entryId': serializer.toJson<String>(entryId),
       'op': serializer.toJson<String>(op),
     };
   }
 
-  OutboxEntry copyWith({String? feedingId, String? op}) => OutboxEntry(
-        feedingId: feedingId ?? this.feedingId,
+  OutboxEntry copyWith({String? entryId, String? op}) => OutboxEntry(
+        entryId: entryId ?? this.entryId,
         op: op ?? this.op,
       );
   OutboxEntry copyWithCompanion(OutboxEntriesCompanion data) {
     return OutboxEntry(
-      feedingId: data.feedingId.present ? data.feedingId.value : this.feedingId,
+      entryId: data.entryId.present ? data.entryId.value : this.entryId,
       op: data.op.present ? data.op.value : this.op,
     );
   }
@@ -658,53 +930,53 @@ class OutboxEntry extends DataClass implements Insertable<OutboxEntry> {
   @override
   String toString() {
     return (StringBuffer('OutboxEntry(')
-          ..write('feedingId: $feedingId, ')
+          ..write('entryId: $entryId, ')
           ..write('op: $op')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(feedingId, op);
+  int get hashCode => Object.hash(entryId, op);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is OutboxEntry &&
-          other.feedingId == this.feedingId &&
+          other.entryId == this.entryId &&
           other.op == this.op);
 }
 
 class OutboxEntriesCompanion extends UpdateCompanion<OutboxEntry> {
-  final Value<String> feedingId;
+  final Value<String> entryId;
   final Value<String> op;
   final Value<int> rowid;
   const OutboxEntriesCompanion({
-    this.feedingId = const Value.absent(),
+    this.entryId = const Value.absent(),
     this.op = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   OutboxEntriesCompanion.insert({
-    required String feedingId,
+    required String entryId,
     required String op,
     this.rowid = const Value.absent(),
-  })  : feedingId = Value(feedingId),
+  })  : entryId = Value(entryId),
         op = Value(op);
   static Insertable<OutboxEntry> custom({
-    Expression<String>? feedingId,
+    Expression<String>? entryId,
     Expression<String>? op,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
-      if (feedingId != null) 'feeding_id': feedingId,
+      if (entryId != null) 'entry_id': entryId,
       if (op != null) 'op': op,
       if (rowid != null) 'rowid': rowid,
     });
   }
 
   OutboxEntriesCompanion copyWith(
-      {Value<String>? feedingId, Value<String>? op, Value<int>? rowid}) {
+      {Value<String>? entryId, Value<String>? op, Value<int>? rowid}) {
     return OutboxEntriesCompanion(
-      feedingId: feedingId ?? this.feedingId,
+      entryId: entryId ?? this.entryId,
       op: op ?? this.op,
       rowid: rowid ?? this.rowid,
     );
@@ -713,8 +985,8 @@ class OutboxEntriesCompanion extends UpdateCompanion<OutboxEntry> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
-    if (feedingId.present) {
-      map['feeding_id'] = Variable<String>(feedingId.value);
+    if (entryId.present) {
+      map['entry_id'] = Variable<String>(entryId.value);
     }
     if (op.present) {
       map['op'] = Variable<String>(op.value);
@@ -728,7 +1000,7 @@ class OutboxEntriesCompanion extends UpdateCompanion<OutboxEntry> {
   @override
   String toString() {
     return (StringBuffer('OutboxEntriesCompanion(')
-          ..write('feedingId: $feedingId, ')
+          ..write('entryId: $entryId, ')
           ..write('op: $op, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -926,21 +1198,212 @@ class MetaEntriesCompanion extends UpdateCompanion<MetaEntry> {
   }
 }
 
+class $LocalBlobsTable extends LocalBlobs
+    with TableInfo<$LocalBlobsTable, LocalBlob> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalBlobsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _keyMeta = const VerificationMeta('key');
+  @override
+  late final GeneratedColumn<String> key = GeneratedColumn<String>(
+      'key', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _dataMeta = const VerificationMeta('data');
+  @override
+  late final GeneratedColumn<Uint8List> data = GeneratedColumn<Uint8List>(
+      'data', aliasedName, false,
+      type: DriftSqlType.blob, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [key, data];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_blobs';
+  @override
+  VerificationContext validateIntegrity(Insertable<LocalBlob> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('key')) {
+      context.handle(
+          _keyMeta, key.isAcceptableOrUnknown(data['key']!, _keyMeta));
+    } else if (isInserting) {
+      context.missing(_keyMeta);
+    }
+    if (data.containsKey('data')) {
+      context.handle(
+          _dataMeta, this.data.isAcceptableOrUnknown(data['data']!, _dataMeta));
+    } else if (isInserting) {
+      context.missing(_dataMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {key};
+  @override
+  LocalBlob map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalBlob(
+      key: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}key'])!,
+      data: attachedDatabase.typeMapping
+          .read(DriftSqlType.blob, data['${effectivePrefix}data'])!,
+    );
+  }
+
+  @override
+  $LocalBlobsTable createAlias(String alias) {
+    return $LocalBlobsTable(attachedDatabase, alias);
+  }
+}
+
+class LocalBlob extends DataClass implements Insertable<LocalBlob> {
+  final String key;
+  final Uint8List data;
+  const LocalBlob({required this.key, required this.data});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['key'] = Variable<String>(key);
+    map['data'] = Variable<Uint8List>(data);
+    return map;
+  }
+
+  LocalBlobsCompanion toCompanion(bool nullToAbsent) {
+    return LocalBlobsCompanion(
+      key: Value(key),
+      data: Value(data),
+    );
+  }
+
+  factory LocalBlob.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalBlob(
+      key: serializer.fromJson<String>(json['key']),
+      data: serializer.fromJson<Uint8List>(json['data']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'key': serializer.toJson<String>(key),
+      'data': serializer.toJson<Uint8List>(data),
+    };
+  }
+
+  LocalBlob copyWith({String? key, Uint8List? data}) => LocalBlob(
+        key: key ?? this.key,
+        data: data ?? this.data,
+      );
+  LocalBlob copyWithCompanion(LocalBlobsCompanion data) {
+    return LocalBlob(
+      key: data.key.present ? data.key.value : this.key,
+      data: data.data.present ? data.data.value : this.data,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalBlob(')
+          ..write('key: $key, ')
+          ..write('data: $data')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(key, $driftBlobEquality.hash(data));
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalBlob &&
+          other.key == this.key &&
+          $driftBlobEquality.equals(other.data, this.data));
+}
+
+class LocalBlobsCompanion extends UpdateCompanion<LocalBlob> {
+  final Value<String> key;
+  final Value<Uint8List> data;
+  final Value<int> rowid;
+  const LocalBlobsCompanion({
+    this.key = const Value.absent(),
+    this.data = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalBlobsCompanion.insert({
+    required String key,
+    required Uint8List data,
+    this.rowid = const Value.absent(),
+  })  : key = Value(key),
+        data = Value(data);
+  static Insertable<LocalBlob> custom({
+    Expression<String>? key,
+    Expression<Uint8List>? data,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (key != null) 'key': key,
+      if (data != null) 'data': data,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalBlobsCompanion copyWith(
+      {Value<String>? key, Value<Uint8List>? data, Value<int>? rowid}) {
+    return LocalBlobsCompanion(
+      key: key ?? this.key,
+      data: data ?? this.data,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
+    if (data.present) {
+      map['data'] = Variable<Uint8List>(data.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalBlobsCompanion(')
+          ..write('key: $key, ')
+          ..write('data: $data, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
-  late final $FeedingsTable feedings = $FeedingsTable(this);
+  late final $EntriesTable entries = $EntriesTable(this);
   late final $OutboxEntriesTable outboxEntries = $OutboxEntriesTable(this);
   late final $MetaEntriesTable metaEntries = $MetaEntriesTable(this);
+  late final $LocalBlobsTable localBlobs = $LocalBlobsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities =>
-      [feedings, outboxEntries, metaEntries];
+      [entries, outboxEntries, metaEntries, localBlobs];
 }
 
-typedef $$FeedingsTableCreateCompanionBuilder = FeedingsCompanion Function({
+typedef $$EntriesTableCreateCompanionBuilder = EntriesCompanion Function({
   required String id,
   required String type,
   required String startIso,
@@ -949,12 +1412,19 @@ typedef $$FeedingsTableCreateCompanionBuilder = FeedingsCompanion Function({
   Value<int> rightMs,
   Value<String?> endSide,
   Value<int> amountMl,
+  Value<int> leftMl,
+  Value<int> rightMl,
+  Value<String?> diaper,
+  Value<bool> rash,
+  Value<String> title,
+  Value<String> value,
+  Value<String> unit,
   Value<String> notes,
   Value<String?> updatedAt,
   Value<int?> utcOffsetMin,
   Value<int> rowid,
 });
-typedef $$FeedingsTableUpdateCompanionBuilder = FeedingsCompanion Function({
+typedef $$EntriesTableUpdateCompanionBuilder = EntriesCompanion Function({
   Value<String> id,
   Value<String> type,
   Value<String> startIso,
@@ -963,15 +1433,22 @@ typedef $$FeedingsTableUpdateCompanionBuilder = FeedingsCompanion Function({
   Value<int> rightMs,
   Value<String?> endSide,
   Value<int> amountMl,
+  Value<int> leftMl,
+  Value<int> rightMl,
+  Value<String?> diaper,
+  Value<bool> rash,
+  Value<String> title,
+  Value<String> value,
+  Value<String> unit,
   Value<String> notes,
   Value<String?> updatedAt,
   Value<int?> utcOffsetMin,
   Value<int> rowid,
 });
 
-class $$FeedingsTableFilterComposer
-    extends Composer<_$AppDatabase, $FeedingsTable> {
-  $$FeedingsTableFilterComposer({
+class $$EntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $EntriesTable> {
+  $$EntriesTableFilterComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -1002,6 +1479,27 @@ class $$FeedingsTableFilterComposer
   ColumnFilters<int> get amountMl => $composableBuilder(
       column: $table.amountMl, builder: (column) => ColumnFilters(column));
 
+  ColumnFilters<int> get leftMl => $composableBuilder(
+      column: $table.leftMl, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get rightMl => $composableBuilder(
+      column: $table.rightMl, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get diaper => $composableBuilder(
+      column: $table.diaper, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get rash => $composableBuilder(
+      column: $table.rash, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get title => $composableBuilder(
+      column: $table.title, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get value => $composableBuilder(
+      column: $table.value, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get unit => $composableBuilder(
+      column: $table.unit, builder: (column) => ColumnFilters(column));
+
   ColumnFilters<String> get notes => $composableBuilder(
       column: $table.notes, builder: (column) => ColumnFilters(column));
 
@@ -1012,9 +1510,9 @@ class $$FeedingsTableFilterComposer
       column: $table.utcOffsetMin, builder: (column) => ColumnFilters(column));
 }
 
-class $$FeedingsTableOrderingComposer
-    extends Composer<_$AppDatabase, $FeedingsTable> {
-  $$FeedingsTableOrderingComposer({
+class $$EntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $EntriesTable> {
+  $$EntriesTableOrderingComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -1045,6 +1543,27 @@ class $$FeedingsTableOrderingComposer
   ColumnOrderings<int> get amountMl => $composableBuilder(
       column: $table.amountMl, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get leftMl => $composableBuilder(
+      column: $table.leftMl, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get rightMl => $composableBuilder(
+      column: $table.rightMl, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get diaper => $composableBuilder(
+      column: $table.diaper, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get rash => $composableBuilder(
+      column: $table.rash, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get title => $composableBuilder(
+      column: $table.title, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get value => $composableBuilder(
+      column: $table.value, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get unit => $composableBuilder(
+      column: $table.unit, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get notes => $composableBuilder(
       column: $table.notes, builder: (column) => ColumnOrderings(column));
 
@@ -1056,9 +1575,9 @@ class $$FeedingsTableOrderingComposer
       builder: (column) => ColumnOrderings(column));
 }
 
-class $$FeedingsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $FeedingsTable> {
-  $$FeedingsTableAnnotationComposer({
+class $$EntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $EntriesTable> {
+  $$EntriesTableAnnotationComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -1089,6 +1608,27 @@ class $$FeedingsTableAnnotationComposer
   GeneratedColumn<int> get amountMl =>
       $composableBuilder(column: $table.amountMl, builder: (column) => column);
 
+  GeneratedColumn<int> get leftMl =>
+      $composableBuilder(column: $table.leftMl, builder: (column) => column);
+
+  GeneratedColumn<int> get rightMl =>
+      $composableBuilder(column: $table.rightMl, builder: (column) => column);
+
+  GeneratedColumn<String> get diaper =>
+      $composableBuilder(column: $table.diaper, builder: (column) => column);
+
+  GeneratedColumn<bool> get rash =>
+      $composableBuilder(column: $table.rash, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get value =>
+      $composableBuilder(column: $table.value, builder: (column) => column);
+
+  GeneratedColumn<String> get unit =>
+      $composableBuilder(column: $table.unit, builder: (column) => column);
+
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
 
@@ -1099,31 +1639,28 @@ class $$FeedingsTableAnnotationComposer
       column: $table.utcOffsetMin, builder: (column) => column);
 }
 
-class $$FeedingsTableTableManager extends RootTableManager<
+class $$EntriesTableTableManager extends RootTableManager<
     _$AppDatabase,
-    $FeedingsTable,
-    StoredFeeding,
-    $$FeedingsTableFilterComposer,
-    $$FeedingsTableOrderingComposer,
-    $$FeedingsTableAnnotationComposer,
-    $$FeedingsTableCreateCompanionBuilder,
-    $$FeedingsTableUpdateCompanionBuilder,
-    (
-      StoredFeeding,
-      BaseReferences<_$AppDatabase, $FeedingsTable, StoredFeeding>
-    ),
-    StoredFeeding,
+    $EntriesTable,
+    StoredEntry,
+    $$EntriesTableFilterComposer,
+    $$EntriesTableOrderingComposer,
+    $$EntriesTableAnnotationComposer,
+    $$EntriesTableCreateCompanionBuilder,
+    $$EntriesTableUpdateCompanionBuilder,
+    (StoredEntry, BaseReferences<_$AppDatabase, $EntriesTable, StoredEntry>),
+    StoredEntry,
     PrefetchHooks Function()> {
-  $$FeedingsTableTableManager(_$AppDatabase db, $FeedingsTable table)
+  $$EntriesTableTableManager(_$AppDatabase db, $EntriesTable table)
       : super(TableManagerState(
           db: db,
           table: table,
           createFilteringComposer: () =>
-              $$FeedingsTableFilterComposer($db: db, $table: table),
+              $$EntriesTableFilterComposer($db: db, $table: table),
           createOrderingComposer: () =>
-              $$FeedingsTableOrderingComposer($db: db, $table: table),
+              $$EntriesTableOrderingComposer($db: db, $table: table),
           createComputedFieldComposer: () =>
-              $$FeedingsTableAnnotationComposer($db: db, $table: table),
+              $$EntriesTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback: ({
             Value<String> id = const Value.absent(),
             Value<String> type = const Value.absent(),
@@ -1133,12 +1670,19 @@ class $$FeedingsTableTableManager extends RootTableManager<
             Value<int> rightMs = const Value.absent(),
             Value<String?> endSide = const Value.absent(),
             Value<int> amountMl = const Value.absent(),
+            Value<int> leftMl = const Value.absent(),
+            Value<int> rightMl = const Value.absent(),
+            Value<String?> diaper = const Value.absent(),
+            Value<bool> rash = const Value.absent(),
+            Value<String> title = const Value.absent(),
+            Value<String> value = const Value.absent(),
+            Value<String> unit = const Value.absent(),
             Value<String> notes = const Value.absent(),
             Value<String?> updatedAt = const Value.absent(),
             Value<int?> utcOffsetMin = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
-              FeedingsCompanion(
+              EntriesCompanion(
             id: id,
             type: type,
             startIso: startIso,
@@ -1147,6 +1691,13 @@ class $$FeedingsTableTableManager extends RootTableManager<
             rightMs: rightMs,
             endSide: endSide,
             amountMl: amountMl,
+            leftMl: leftMl,
+            rightMl: rightMl,
+            diaper: diaper,
+            rash: rash,
+            title: title,
+            value: value,
+            unit: unit,
             notes: notes,
             updatedAt: updatedAt,
             utcOffsetMin: utcOffsetMin,
@@ -1161,12 +1712,19 @@ class $$FeedingsTableTableManager extends RootTableManager<
             Value<int> rightMs = const Value.absent(),
             Value<String?> endSide = const Value.absent(),
             Value<int> amountMl = const Value.absent(),
+            Value<int> leftMl = const Value.absent(),
+            Value<int> rightMl = const Value.absent(),
+            Value<String?> diaper = const Value.absent(),
+            Value<bool> rash = const Value.absent(),
+            Value<String> title = const Value.absent(),
+            Value<String> value = const Value.absent(),
+            Value<String> unit = const Value.absent(),
             Value<String> notes = const Value.absent(),
             Value<String?> updatedAt = const Value.absent(),
             Value<int?> utcOffsetMin = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
-              FeedingsCompanion.insert(
+              EntriesCompanion.insert(
             id: id,
             type: type,
             startIso: startIso,
@@ -1175,6 +1733,13 @@ class $$FeedingsTableTableManager extends RootTableManager<
             rightMs: rightMs,
             endSide: endSide,
             amountMl: amountMl,
+            leftMl: leftMl,
+            rightMl: rightMl,
+            diaper: diaper,
+            rash: rash,
+            title: title,
+            value: value,
+            unit: unit,
             notes: notes,
             updatedAt: updatedAt,
             utcOffsetMin: utcOffsetMin,
@@ -1182,39 +1747,36 @@ class $$FeedingsTableTableManager extends RootTableManager<
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (
-                    e.readTable<$FeedingsTable, StoredFeeding>(table),
-                    BaseReferences<_$AppDatabase, $FeedingsTable,
-                        StoredFeeding>(db, table, e)
+                    e.readTable<$EntriesTable, StoredEntry>(table),
+                    BaseReferences<_$AppDatabase, $EntriesTable, StoredEntry>(
+                        db, table, e)
                   ))
               .toList(),
           prefetchHooksCallback: null,
         ));
 }
 
-typedef $$FeedingsTableProcessedTableManager = ProcessedTableManager<
+typedef $$EntriesTableProcessedTableManager = ProcessedTableManager<
     _$AppDatabase,
-    $FeedingsTable,
-    StoredFeeding,
-    $$FeedingsTableFilterComposer,
-    $$FeedingsTableOrderingComposer,
-    $$FeedingsTableAnnotationComposer,
-    $$FeedingsTableCreateCompanionBuilder,
-    $$FeedingsTableUpdateCompanionBuilder,
-    (
-      StoredFeeding,
-      BaseReferences<_$AppDatabase, $FeedingsTable, StoredFeeding>
-    ),
-    StoredFeeding,
+    $EntriesTable,
+    StoredEntry,
+    $$EntriesTableFilterComposer,
+    $$EntriesTableOrderingComposer,
+    $$EntriesTableAnnotationComposer,
+    $$EntriesTableCreateCompanionBuilder,
+    $$EntriesTableUpdateCompanionBuilder,
+    (StoredEntry, BaseReferences<_$AppDatabase, $EntriesTable, StoredEntry>),
+    StoredEntry,
     PrefetchHooks Function()>;
 typedef $$OutboxEntriesTableCreateCompanionBuilder = OutboxEntriesCompanion
     Function({
-  required String feedingId,
+  required String entryId,
   required String op,
   Value<int> rowid,
 });
 typedef $$OutboxEntriesTableUpdateCompanionBuilder = OutboxEntriesCompanion
     Function({
-  Value<String> feedingId,
+  Value<String> entryId,
   Value<String> op,
   Value<int> rowid,
 });
@@ -1228,8 +1790,8 @@ class $$OutboxEntriesTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnFilters<String> get feedingId => $composableBuilder(
-      column: $table.feedingId, builder: (column) => ColumnFilters(column));
+  ColumnFilters<String> get entryId => $composableBuilder(
+      column: $table.entryId, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get op => $composableBuilder(
       column: $table.op, builder: (column) => ColumnFilters(column));
@@ -1244,8 +1806,8 @@ class $$OutboxEntriesTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnOrderings<String> get feedingId => $composableBuilder(
-      column: $table.feedingId, builder: (column) => ColumnOrderings(column));
+  ColumnOrderings<String> get entryId => $composableBuilder(
+      column: $table.entryId, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get op => $composableBuilder(
       column: $table.op, builder: (column) => ColumnOrderings(column));
@@ -1260,8 +1822,8 @@ class $$OutboxEntriesTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  GeneratedColumn<String> get feedingId =>
-      $composableBuilder(column: $table.feedingId, builder: (column) => column);
+  GeneratedColumn<String> get entryId =>
+      $composableBuilder(column: $table.entryId, builder: (column) => column);
 
   GeneratedColumn<String> get op =>
       $composableBuilder(column: $table.op, builder: (column) => column);
@@ -1293,22 +1855,22 @@ class $$OutboxEntriesTableTableManager extends RootTableManager<
           createComputedFieldComposer: () =>
               $$OutboxEntriesTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback: ({
-            Value<String> feedingId = const Value.absent(),
+            Value<String> entryId = const Value.absent(),
             Value<String> op = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               OutboxEntriesCompanion(
-            feedingId: feedingId,
+            entryId: entryId,
             op: op,
             rowid: rowid,
           ),
           createCompanionCallback: ({
-            required String feedingId,
+            required String entryId,
             required String op,
             Value<int> rowid = const Value.absent(),
           }) =>
               OutboxEntriesCompanion.insert(
-            feedingId: feedingId,
+            entryId: entryId,
             op: op,
             rowid: rowid,
           ),
@@ -1464,14 +2026,140 @@ typedef $$MetaEntriesTableProcessedTableManager = ProcessedTableManager<
     (MetaEntry, BaseReferences<_$AppDatabase, $MetaEntriesTable, MetaEntry>),
     MetaEntry,
     PrefetchHooks Function()>;
+typedef $$LocalBlobsTableCreateCompanionBuilder = LocalBlobsCompanion Function({
+  required String key,
+  required Uint8List data,
+  Value<int> rowid,
+});
+typedef $$LocalBlobsTableUpdateCompanionBuilder = LocalBlobsCompanion Function({
+  Value<String> key,
+  Value<Uint8List> data,
+  Value<int> rowid,
+});
+
+class $$LocalBlobsTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalBlobsTable> {
+  $$LocalBlobsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get key => $composableBuilder(
+      column: $table.key, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<Uint8List> get data => $composableBuilder(
+      column: $table.data, builder: (column) => ColumnFilters(column));
+}
+
+class $$LocalBlobsTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalBlobsTable> {
+  $$LocalBlobsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get key => $composableBuilder(
+      column: $table.key, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<Uint8List> get data => $composableBuilder(
+      column: $table.data, builder: (column) => ColumnOrderings(column));
+}
+
+class $$LocalBlobsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalBlobsTable> {
+  $$LocalBlobsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => column);
+
+  GeneratedColumn<Uint8List> get data =>
+      $composableBuilder(column: $table.data, builder: (column) => column);
+}
+
+class $$LocalBlobsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $LocalBlobsTable,
+    LocalBlob,
+    $$LocalBlobsTableFilterComposer,
+    $$LocalBlobsTableOrderingComposer,
+    $$LocalBlobsTableAnnotationComposer,
+    $$LocalBlobsTableCreateCompanionBuilder,
+    $$LocalBlobsTableUpdateCompanionBuilder,
+    (LocalBlob, BaseReferences<_$AppDatabase, $LocalBlobsTable, LocalBlob>),
+    LocalBlob,
+    PrefetchHooks Function()> {
+  $$LocalBlobsTableTableManager(_$AppDatabase db, $LocalBlobsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalBlobsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalBlobsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LocalBlobsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> key = const Value.absent(),
+            Value<Uint8List> data = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              LocalBlobsCompanion(
+            key: key,
+            data: data,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String key,
+            required Uint8List data,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              LocalBlobsCompanion.insert(
+            key: key,
+            data: data,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable<$LocalBlobsTable, LocalBlob>(table),
+                    BaseReferences<_$AppDatabase, $LocalBlobsTable, LocalBlob>(
+                        db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$LocalBlobsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $LocalBlobsTable,
+    LocalBlob,
+    $$LocalBlobsTableFilterComposer,
+    $$LocalBlobsTableOrderingComposer,
+    $$LocalBlobsTableAnnotationComposer,
+    $$LocalBlobsTableCreateCompanionBuilder,
+    $$LocalBlobsTableUpdateCompanionBuilder,
+    (LocalBlob, BaseReferences<_$AppDatabase, $LocalBlobsTable, LocalBlob>),
+    LocalBlob,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
   $AppDatabaseManager(this._db);
-  $$FeedingsTableTableManager get feedings =>
-      $$FeedingsTableTableManager(_db, _db.feedings);
+  $$EntriesTableTableManager get entries =>
+      $$EntriesTableTableManager(_db, _db.entries);
   $$OutboxEntriesTableTableManager get outboxEntries =>
       $$OutboxEntriesTableTableManager(_db, _db.outboxEntries);
   $$MetaEntriesTableTableManager get metaEntries =>
       $$MetaEntriesTableTableManager(_db, _db.metaEntries);
+  $$LocalBlobsTableTableManager get localBlobs =>
+      $$LocalBlobsTableTableManager(_db, _db.localBlobs);
 }

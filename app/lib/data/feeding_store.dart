@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
-import '../models/feeding.dart';
+import '../models/entry.dart';
+import '../models/live_timer.dart';
 import '../sync/api_client.dart';
 import 'feeding_repository.dart';
 import 'memory_repository.dart';
@@ -16,7 +18,7 @@ class FeedingStore extends ChangeNotifier {
   FeedingRepository _repo;
   bool storageReady;
   bool _storageOpening = false;
-  final List<Feeding> _feedings = [];
+  final List<Entry> _entries = [];
   final Map<String, String> _outbox = {};
   final Map<String, String> _meta = {};
   final List<Map<String, dynamic>> _events = [];
@@ -24,6 +26,7 @@ class FeedingStore extends ChangeNotifier {
   final String sessionId = const Uuid().v4();
   String _babyName = 'My baby';
   String _babyId = '';
+  Uint8List? _babyPhoto;
   String? syncError;
   DateTime? lastSyncedAt;
   bool syncing = false;
@@ -31,9 +34,13 @@ class FeedingStore extends ChangeNotifier {
   ApiClient? api;
   Future<void> Function()? performSync;
 
-  List<Feeding> get feedings => List.unmodifiable(_feedings);
+  /// The clock, replaceable in tests.
+  DateTime Function() now = DateTime.now;
+
+  List<Entry> get entries => List.unmodifiable(_entries);
   String get babyName => _babyName;
   String get babyId => _babyId;
+  Uint8List? get babyPhoto => _babyPhoto;
   bool get signedIn => (_meta['access_token'] ?? '').isNotEmpty;
   String? get userEmail => _meta['user_email'];
   String? get accessToken => _meta['access_token'];
@@ -41,37 +48,70 @@ class FeedingStore extends ChangeNotifier {
   Map<String, String> get outbox => Map.unmodifiable(_outbox);
   String? get syncToken => _meta['sync_token'];
 
-  Feeding? get lastFeeding {
-    if (_feedings.isEmpty) return null;
-    return _feedings.reduce((a, b) => a.start.isAfter(b.start) ? a : b);
+  DateTime? get birthDate {
+    final raw = _meta['baby_birth_date'];
+    return raw == null || raw.isEmpty ? null : DateTime.tryParse(raw);
   }
 
+  /// The name or birth date changed here and the server has not heard yet.
+  bool get babyDirty => _meta['baby_dirty'] == '1';
+
+  ThemeMode get themeMode => switch (_meta['appearance']) {
+        'light' => ThemeMode.light,
+        'dark' => ThemeMode.dark,
+        _ => ThemeMode.system,
+      };
+
+  LiveTimer? get liveTimer {
+    final raw = _meta['live_timer'];
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return LiveTimer.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Entry? _latest(bool Function(Entry e) test) {
+    Entry? best;
+    for (final e in _entries) {
+      if (test(e) && (best == null || e.start.isAfter(best.start))) best = e;
+    }
+    return best;
+  }
+
+  Entry? get lastFeeding => _latest((e) => e.isFeed);
+
+  /// The side the last breastfeed ended on.
+  BreastSide? get lastEndSide => _latest((e) => e.type == EntryType.breast && e.endSide != null)?.endSide;
+
+  /// The side to offer next: the other one from where the last feed ended.
+  BreastSide get nextSide => lastEndSide == BreastSide.left ? BreastSide.right : BreastSide.left;
+
+  /// The last bottle with an amount, for "Use last amount" and quick add.
+  Entry? get lastBottle => _latest((e) => e.isBottle && e.amountMl > 0);
+
   /// Opens drift/SQLite on web after the UI is already visible (memory-first).
-  Future<void> attachPersistentStorage(
-    Future<FeedingRepository> Function() open,
-  ) async {
+  Future<void> attachPersistentStorage(Future<FeedingRepository> Function() open) async {
     if (_storageOpening || storageReady) return;
     _storageOpening = true;
     notifyListeners();
     try {
       final repo = await open();
-      final stagedFeedings = List<Feeding>.from(_feedings);
+      final stagedEntries = List<Entry>.from(_entries);
       final stagedOutbox = Map<String, String>.from(_outbox);
       _repo = repo;
       await load();
-      for (final feeding in stagedFeedings) {
-        if (_feedings.any((f) => f.id == feeding.id)) continue;
-        await upsert(feeding);
+      for (final entry in stagedEntries) {
+        if (_entries.any((e) => e.id == entry.id)) continue;
+        await upsert(entry);
       }
-      for (final entry in stagedOutbox.entries) {
-        if (_outbox.containsKey(entry.key)) continue;
-        await _queue(entry.key, entry.value);
+      for (final queued in stagedOutbox.entries) {
+        if (_outbox.containsKey(queued.key)) continue;
+        await _queue(queued.key, queued.value);
       }
     } catch (e) {
-      setSyncResult(
-        error:
-            'Saved feedings could not be read yet. You can still log on this device.',
-      );
+      setSyncResult(error: 'Saved entries could not be read yet. You can still log on this device.');
     } finally {
       storageReady = true;
       _storageOpening = false;
@@ -81,11 +121,12 @@ class FeedingStore extends ChangeNotifier {
 
   Future<void> load() async {
     final snap = await _repo.load();
-    _feedings
+    _entries
       ..clear()
-      ..addAll(snap.feedings);
+      ..addAll(snap.entries);
     _babyName = snap.babyName;
     _babyId = snap.babyId;
+    _babyPhoto = snap.babyPhoto;
     _meta
       ..clear()
       ..addAll(snap.meta);
@@ -108,26 +149,24 @@ class FeedingStore extends ChangeNotifier {
   String newId() => const Uuid().v4();
   String get anonId => _meta['anon_id'] ?? '';
 
-  Future<void> upsert(Feeding feeding) async {
-    final stamped = feeding.copyWith(
-      updatedAt: DateTime.now().toUtc(),
-      utcOffsetMin: DateTime.now().timeZoneOffset.inMinutes,
-    );
-    final i = _feedings.indexWhere((f) => f.id == stamped.id);
+  Future<void> upsert(Entry entry) async {
+    final at = now();
+    final stamped = entry.copyWith(updatedAt: at.toUtc(), utcOffsetMin: at.timeZoneOffset.inMinutes);
+    final i = _entries.indexWhere((e) => e.id == stamped.id);
     if (i >= 0) {
-      _feedings[i] = stamped;
+      _entries[i] = stamped;
     } else {
-      _feedings.add(stamped);
+      _entries.add(stamped);
     }
-    await _repo.upsertFeeding(stamped);
+    await _repo.upsertEntry(stamped);
     await _queue(stamped.id, 'upsert');
     notifyListeners();
     await _afterChange();
   }
 
   Future<void> delete(String id) async {
-    _feedings.removeWhere((f) => f.id == id);
-    await _repo.deleteFeeding(id);
+    _entries.removeWhere((e) => e.id == id);
+    await _repo.deleteEntry(id);
     await _queue(id, 'delete');
     notifyListeners();
     await _afterChange();
@@ -136,8 +175,55 @@ class FeedingStore extends ChangeNotifier {
   Future<void> setBabyName(String name) async {
     _babyName = name.trim().isEmpty ? 'My baby' : name.trim();
     await _putMeta('baby_name', _babyName);
+    await _putMeta('baby_dirty', '1');
     notifyListeners();
     await _afterChange();
+  }
+
+  Future<void> setBirthDate(DateTime? date) async {
+    await _putMeta('baby_birth_date', date == null ? '' : _isoDate(date));
+    await _putMeta('baby_dirty', '1');
+    notifyListeners();
+    await _afterChange();
+  }
+
+  /// The server has the name and birth date now.
+  Future<void> markBabySynced() => _putMeta('baby_dirty', '0');
+
+  /// Takes the name and birth date the server has for this baby.
+  Future<void> applyBabyFromServer({required String name, String? birthDate}) async {
+    if (name.trim().isNotEmpty) {
+      _babyName = name.trim();
+      await _putMeta('baby_name', _babyName);
+    }
+    await _putMeta('baby_birth_date', birthDate ?? '');
+    notifyListeners();
+  }
+
+  /// Device-only: the photo is never sent to the server.
+  Future<void> setBabyPhoto(Uint8List? bytes) async {
+    _babyPhoto = bytes;
+    await _repo.setBlob('baby_photo', bytes);
+    notifyListeners();
+  }
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    await _putMeta('appearance', switch (mode) {
+      ThemeMode.light => 'light',
+      ThemeMode.dark => 'dark',
+      ThemeMode.system => 'system',
+    });
+    notifyListeners();
+  }
+
+  Future<void> setLiveTimer(LiveTimer? timer) async {
+    if (timer == null) {
+      _meta.remove('live_timer');
+      await _repo.removeMeta('live_timer');
+    } else {
+      await _putMeta('live_timer', jsonEncode(timer.toJson()));
+    }
+    notifyListeners();
   }
 
   Future<void> setAnalyticsEnabled(bool enabled) async {
@@ -155,7 +241,7 @@ class FeedingStore extends ChangeNotifier {
     _events.add({
       'event_id': const Uuid().v4(),
       'name': name,
-      'client_ts': DateTime.now().toUtc().toIso8601String(),
+      'client_ts': now().toUtc().toIso8601String(),
       'props': props,
     });
     if (_events.length > 200) {
@@ -196,23 +282,17 @@ class FeedingStore extends ChangeNotifier {
   Future<void> setSyncToken(String token) => _putMeta('sync_token', token);
 
   /// Switches to a baby the account already has on the server, so signing in on
-  /// another device shows the same log. Feedings not yet sent follow the baby,
+  /// another device shows the same log. Entries not yet sent follow the baby,
   /// and the next pull starts from the beginning.
-  Future<void> adoptBaby(String id, String name) async {
+  Future<void> adoptBaby(String id, String name, {String? birthDate}) async {
     _babyId = id;
     if (name.trim().isNotEmpty) _babyName = name.trim();
     await _putMeta('baby_id', _babyId);
     await _putMeta('baby_name', _babyName);
+    await _putMeta('baby_birth_date', birthDate ?? '');
+    await _putMeta('baby_dirty', '0');
     await _putMeta('sync_token', '0');
     notifyListeners();
-  }
-
-  Future<void> clearOutbox() async {
-    final ids = _outbox.keys.toList();
-    _outbox.clear();
-    for (final id in ids) {
-      await _repo.removeOutbox(id);
-    }
   }
 
   Future<void> ackOutbox(String id) async {
@@ -220,40 +300,44 @@ class FeedingStore extends ChangeNotifier {
     await _repo.removeOutbox(id);
   }
 
-  Future<void> applyRemote(List<Feeding> remote, {required Set<String> deletedIds}) async {
+  Future<void> applyRemote(List<Entry> remote, {required Set<String> deletedIds}) async {
     for (final id in deletedIds) {
-      _feedings.removeWhere((f) => f.id == id);
-      await _repo.deleteFeeding(id);
+      _entries.removeWhere((e) => e.id == id);
+      await _repo.deleteEntry(id);
     }
-    for (final feeding in remote) {
-      if (_outbox[feeding.id] == 'upsert') continue;
-      final i = _feedings.indexWhere((f) => f.id == feeding.id);
+    for (final entry in remote) {
+      if (_outbox[entry.id] == 'upsert') continue;
+      final i = _entries.indexWhere((e) => e.id == entry.id);
       if (i >= 0) {
-        final local = _feedings[i];
-        final localAt = local.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        final remoteAt = feeding.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final localAt = _entries[i].updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final remoteAt = entry.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
         if (remoteAt.isBefore(localAt)) continue;
-        _feedings[i] = feeding;
+        _entries[i] = entry;
       } else {
-        _feedings.add(feeding);
+        _entries.add(entry);
       }
-      await _repo.upsertFeeding(feeding);
+      await _repo.upsertEntry(entry);
     }
     notifyListeners();
   }
 
+  /// Clears everything on this device except the anonymous id and the
+  /// appearance choice, which belong to the phone rather than the account.
   Future<void> signOutLocal() async {
-    _feedings.clear();
+    _entries.clear();
     _outbox.clear();
     _events.clear();
     final anon = _meta['anon_id'];
+    final appearance = _meta['appearance'];
     await _repo.wipe();
     _meta.clear();
     _babyName = 'My baby';
     _babyId = const Uuid().v4();
+    _babyPhoto = null;
     await _repo.setMeta('baby_id', _babyId);
     await _repo.setMeta('baby_name', _babyName);
     if (anon != null) await _putMeta('anon_id', anon);
+    if (appearance != null) await _putMeta('appearance', appearance);
     analyticsEnabled = false;
     syncError = null;
     lastSyncedAt = null;
@@ -287,3 +371,6 @@ class FeedingStore extends ChangeNotifier {
     if (sync != null) await sync();
   }
 }
+
+String _isoDate(DateTime d) =>
+    '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';

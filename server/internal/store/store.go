@@ -36,8 +36,10 @@ var (
 	ErrConflict = errors.New("conflict")
 )
 
-// Feeding is one logged feed. Type formula is what the app calls a formula bottle.
-type Feeding struct {
+// Entry is one thing logged for a baby: a feed, a pump session, a diaper,
+// a routine, or a measurement. Type is breast, formula, breast_milk, pump,
+// diaper, routine or other; fields that do not apply to the type stay empty.
+type Entry struct {
 	ID        string
 	BabyID    string
 	Type      string
@@ -48,6 +50,13 @@ type Feeding struct {
 	RightMs   int
 	EndSide   *string
 	AmountMl  int
+	LeftMl    int
+	RightMl   int
+	Diaper    *string
+	Rash      bool
+	Title     string
+	Value     string
+	Unit      string
 	Notes     string
 	CreatedBy string
 	UpdatedAt time.Time
@@ -184,7 +193,6 @@ func (s *Store) migrate(ctx context.Context) error {
 		file    string
 	}{
 		{1, "migrations/001_init.sql"},
-		{2, "migrations/002_firebase.sql"},
 	}
 	for _, step := range steps {
 		if applied[step.version] {
@@ -451,36 +459,50 @@ func (s *Store) ListBabies(ctx context.Context, userID string) ([]Baby, error) {
 	return out, rows.Err()
 }
 
-func (s *Store) RenameBaby(ctx context.Context, userID, babyID, name string) (Baby, error) {
+// UpdateBaby changes the name and, when setBirth is true, the birth date
+// (nil clears it). A nil name leaves the name as it is.
+func (s *Store) UpdateBaby(ctx context.Context, userID, babyID string, name *string, setBirth bool, birth *string) (Baby, error) {
 	if _, err := s.role(ctx, userID, babyID); err != nil {
 		return Baby{}, err
 	}
-	if err := s.exec(ctx, `UPDATE babies SET name = ? WHERE id = ?`, name, babyID); err != nil {
-		return Baby{}, err
+	if name != nil {
+		if err := s.exec(ctx, `UPDATE babies SET name = ? WHERE id = ?`, *name, babyID); err != nil {
+			return Baby{}, err
+		}
+	}
+	if setBirth {
+		if err := s.exec(ctx, `UPDATE babies SET birth_date = CAST(? AS DATE) WHERE id = ?`, birth, babyID); err != nil {
+			return Baby{}, err
+		}
 	}
 	return s.GetBaby(ctx, userID, babyID)
 }
 
-func (s *Store) UpsertFeeding(ctx context.Context, userID string, f Feeding) (Feeding, error) {
-	if _, err := s.role(ctx, userID, f.BabyID); err != nil {
-		return Feeding{}, err
+const entryColumns = `id, baby_id, type, start_utc, end_utc, utc_offset_min, left_ms, right_ms,
+	end_side, amount_ml, left_ml, right_ml, diaper, rash, title, value, unit, notes,
+	created_by, updated_at, deleted_at, change_no`
+
+func (s *Store) UpsertEntry(ctx context.Context, userID string, e Entry) (Entry, error) {
+	if _, err := s.role(ctx, userID, e.BabyID); err != nil {
+		return Entry{}, err
 	}
-	existing, err := s.getFeeding(ctx, f.ID)
+	existing, err := s.getEntry(ctx, e.ID)
 	if err != nil && !errors.Is(err, ErrNotFound) {
-		return Feeding{}, err
+		return Entry{}, err
 	}
-	if err == nil && existing.BabyID != f.BabyID {
-		return Feeding{}, ErrConflict
+	if err == nil && existing.BabyID != e.BabyID {
+		return Entry{}, ErrConflict
 	}
-	f.CreatedBy = userID
+	e.CreatedBy = userID
 	if existing.CreatedBy != "" {
-		f.CreatedBy = existing.CreatedBy
+		e.CreatedBy = existing.CreatedBy
 	}
 	err = s.exec(ctx, `
-		INSERT INTO feedings (
+		INSERT INTO entries (
 			id, baby_id, type, start_utc, end_utc, utc_offset_min,
-			left_ms, right_ms, end_side, amount_ml, notes, created_by, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			left_ms, right_ms, end_side, amount_ml, left_ml, right_ml,
+			diaper, rash, title, value, unit, notes, created_by, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (id) DO UPDATE SET
 			type = excluded.type,
 			start_utc = excluded.start_utc,
@@ -490,136 +512,130 @@ func (s *Store) UpsertFeeding(ctx context.Context, userID string, f Feeding) (Fe
 			right_ms = excluded.right_ms,
 			end_side = excluded.end_side,
 			amount_ml = excluded.amount_ml,
+			left_ml = excluded.left_ml,
+			right_ml = excluded.right_ml,
+			diaper = excluded.diaper,
+			rash = excluded.rash,
+			title = excluded.title,
+			value = excluded.value,
+			unit = excluded.unit,
 			notes = excluded.notes,
 			updated_at = excluded.updated_at,
 			deleted_at = NULL,
 			change_no = nextval('change_seq')
-		WHERE feedings.baby_id = excluded.baby_id
-		  AND feedings.updated_at <= excluded.updated_at`,
-		f.ID, f.BabyID, f.Type, f.StartUTC.UTC(), f.EndUTC.UTC(), f.OffsetMin,
-		f.LeftMs, f.RightMs, f.EndSide, f.AmountMl, f.Notes, f.CreatedBy, f.UpdatedAt.UTC(),
+		WHERE entries.baby_id = excluded.baby_id
+		  AND entries.updated_at <= excluded.updated_at`,
+		e.ID, e.BabyID, e.Type, e.StartUTC.UTC(), e.EndUTC.UTC(), e.OffsetMin,
+		e.LeftMs, e.RightMs, e.EndSide, e.AmountMl, e.LeftMl, e.RightMl,
+		e.Diaper, e.Rash, e.Title, e.Value, e.Unit, e.Notes, e.CreatedBy, e.UpdatedAt.UTC(),
 	)
 	if err != nil {
-		return Feeding{}, err
+		return Entry{}, err
 	}
-	return s.getFeeding(ctx, f.ID)
+	return s.getEntry(ctx, e.ID)
 }
 
-func (s *Store) DeleteFeeding(ctx context.Context, userID, babyID, feedingID string, at time.Time) (Feeding, error) {
+func (s *Store) DeleteEntry(ctx context.Context, userID, babyID, entryID string, at time.Time) (Entry, error) {
 	if _, err := s.role(ctx, userID, babyID); err != nil {
-		return Feeding{}, err
+		return Entry{}, err
 	}
-	existing, err := s.getFeeding(ctx, feedingID)
+	existing, err := s.getEntry(ctx, entryID)
 	if err != nil {
-		return Feeding{}, err
+		return Entry{}, err
 	}
 	if existing.BabyID != babyID {
-		return Feeding{}, ErrNotFound
+		return Entry{}, ErrNotFound
 	}
 	if existing.DeletedAt == nil {
 		if err := s.exec(ctx, `
-			UPDATE feedings
+			UPDATE entries
 			SET deleted_at = ?, updated_at = ?, change_no = nextval('change_seq')
-			WHERE id = ? AND baby_id = ?`, at.UTC(), at.UTC(), feedingID, babyID); err != nil {
-			return Feeding{}, err
+			WHERE id = ? AND baby_id = ?`, at.UTC(), at.UTC(), entryID, babyID); err != nil {
+			return Entry{}, err
 		}
 	}
-	return s.getFeeding(ctx, feedingID)
+	return s.getEntry(ctx, entryID)
 }
 
-func (s *Store) FeedingsSince(ctx context.Context, userID, babyID string, since int64) ([]Feeding, int64, error) {
+// EntriesSince returns the baby's changes after the sync token, deletions included.
+func (s *Store) EntriesSince(ctx context.Context, userID, babyID string, since int64) ([]Entry, int64, error) {
 	if _, err := s.role(ctx, userID, babyID); err != nil {
 		return nil, 0, err
 	}
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, baby_id, type, start_utc, end_utc, utc_offset_min, left_ms, right_ms,
-		       end_side, amount_ml, notes, created_by, updated_at, deleted_at, change_no
-		FROM feedings
+	rows, err := s.db.QueryContext(ctx, `SELECT `+entryColumns+`
+		FROM entries
 		WHERE baby_id = ? AND change_no > ?
 		ORDER BY change_no`, babyID, since)
 	if err != nil {
 		return nil, 0, err
 	}
 	defer rows.Close()
-	list, err := scanFeedings(rows)
+	list, err := scanEntries(rows)
 	if err != nil {
 		return nil, 0, err
 	}
 	next := since
-	for _, f := range list {
-		if f.ChangeNo > next {
-			next = f.ChangeNo
+	for _, e := range list {
+		if e.ChangeNo > next {
+			next = e.ChangeNo
 		}
 	}
 	return list, next, nil
 }
 
-func (s *Store) FeedingsForBaby(ctx context.Context, userID, babyID string) ([]Feeding, error) {
-	if _, err := s.role(ctx, userID, babyID); err != nil {
-		return nil, err
-	}
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, baby_id, type, start_utc, end_utc, utc_offset_min, left_ms, right_ms,
-		       end_side, amount_ml, notes, created_by, updated_at, deleted_at, change_no
-		FROM feedings
-		WHERE baby_id = ? AND deleted_at IS NULL
-		ORDER BY start_utc`, babyID)
+func (s *Store) getEntry(ctx context.Context, id string) (Entry, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT `+entryColumns+` FROM entries WHERE id = ?`, id)
 	if err != nil {
-		return nil, err
+		return Entry{}, err
 	}
 	defer rows.Close()
-	return scanFeedings(rows)
-}
-
-func (s *Store) getFeeding(ctx context.Context, id string) (Feeding, error) {
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, baby_id, type, start_utc, end_utc, utc_offset_min, left_ms, right_ms,
-		       end_side, amount_ml, notes, created_by, updated_at, deleted_at, change_no
-		FROM feedings WHERE id = ?`, id)
+	list, err := scanEntries(rows)
 	if err != nil {
-		return Feeding{}, err
-	}
-	defer rows.Close()
-	list, err := scanFeedings(rows)
-	if err != nil {
-		return Feeding{}, err
+		return Entry{}, err
 	}
 	if len(list) == 0 {
-		return Feeding{}, ErrNotFound
+		return Entry{}, ErrNotFound
 	}
 	return list[0], nil
 }
 
-func scanFeedings(rows *sql.Rows) ([]Feeding, error) {
-	var out []Feeding
+func scanEntries(rows *sql.Rows) ([]Entry, error) {
+	var out []Entry
 	for rows.Next() {
-		var f Feeding
-		var endSide sql.NullString
+		var e Entry
+		var endSide, diaper sql.NullString
 		var deleted sql.NullTime
-		var left, right, amount, offset int64
+		var left, right, amount, leftMl, rightMl, offset int64
 		var idCol, babyCol, createdCol dbID
 		if err := rows.Scan(
-			&idCol, &babyCol, &f.Type, &f.StartUTC, &f.EndUTC, &offset, &left, &right,
-			&endSide, &amount, &f.Notes, &createdCol, &f.UpdatedAt, &deleted, &f.ChangeNo,
+			&idCol, &babyCol, &e.Type, &e.StartUTC, &e.EndUTC, &offset, &left, &right,
+			&endSide, &amount, &leftMl, &rightMl, &diaper, &e.Rash, &e.Title, &e.Value, &e.Unit, &e.Notes,
+			&createdCol, &e.UpdatedAt, &deleted, &e.ChangeNo,
 		); err != nil {
 			return nil, err
 		}
-		f.ID = string(idCol)
-		f.BabyID = string(babyCol)
-		f.CreatedBy = string(createdCol)
-		f.OffsetMin = int(offset)
-		f.LeftMs = int(left)
-		f.RightMs = int(right)
-		f.AmountMl = int(amount)
+		e.ID = string(idCol)
+		e.BabyID = string(babyCol)
+		e.CreatedBy = string(createdCol)
+		e.OffsetMin = int(offset)
+		e.LeftMs = int(left)
+		e.RightMs = int(right)
+		e.AmountMl = int(amount)
+		e.LeftMl = int(leftMl)
+		e.RightMl = int(rightMl)
 		if endSide.Valid {
 			v := endSide.String
-			f.EndSide = &v
+			e.EndSide = &v
+		}
+		if diaper.Valid {
+			v := diaper.String
+			e.Diaper = &v
 		}
 		if deleted.Valid {
 			t := deleted.Time
-			f.DeletedAt = &t
+			e.DeletedAt = &t
 		}
-		out = append(out, f)
+		out = append(out, e)
 	}
 	return out, rows.Err()
 }
@@ -742,7 +758,7 @@ func (s *Store) DeleteUser(ctx context.Context, userID string) error {
 			}
 			continue
 		}
-		if _, err := tx.ExecContext(ctx, `DELETE FROM feedings WHERE baby_id = ?`, b.ID); err != nil {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM entries WHERE baby_id = ?`, b.ID); err != nil {
 			return err
 		}
 		if _, err := tx.ExecContext(ctx, `DELETE FROM memberships WHERE baby_id = ?`, b.ID); err != nil {
